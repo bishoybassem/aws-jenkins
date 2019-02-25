@@ -1,0 +1,14 @@
+version: "3.5"
+services:
+  master:
+    image: jenkins-master
+    build:
+      context: .
+      dockerfile: MasterDockerfile
+    ports:
+    - 8080:8080
+  slave:
+    image: jenkins-slave
+    build:
+      context: .
+      dockerfile: SlaveDockerfile

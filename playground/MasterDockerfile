@@ -1,0 +1,13 @@
+FROM jenkins/jenkins:lts-slim
+
+ENV JAVA_OPTS "-Djenkins.install.runSetupWizard=false"
+
+RUN /usr/local/bin/install-plugins.sh matrix-auth swarm:3.15
+
+COPY --chown=jenkins configure-security.groovy /usr/share/jenkins/ref/init.groovy.d/configure-security.groovy
+
+RUN echo admin123 > /usr/share/jenkins/ref/.admin_pass \
+    && chmod 400 /usr/share/jenkins/ref/.admin_pass
+
+RUN echo slave123 > /usr/share/jenkins/ref/.slave_pass \
+    && chmod 400 /usr/share/jenkins/ref/.slave_pass

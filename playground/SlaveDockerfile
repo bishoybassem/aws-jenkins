@@ -1,0 +1,9 @@
+FROM openjdk:8-jre-slim
+
+RUN apt-get update \
+    && apt-get install -y wget \
+    && apt-get clean
+
+RUN wget -O swarm-client.jar https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/3.15/swarm-client-3.15.jar
+
+ENTRYPOINT java -jar swarm-client.jar -master http://master:8080  -username slave -password slave123
