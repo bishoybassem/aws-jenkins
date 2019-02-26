@@ -1,47 +1,10 @@
-provider "aws" {
-  region = "eu-central-1"
-}
-
 variable "jenkins_version" {
   description = "The jenkins version to use (major.minor only!)"
-  default = "2.150"
-}
-
-resource "aws_security_group" "jenkins_master" {
-  name        = "jenkins_master"
-  description = "Allow inbound traffic over port 80, 443 and 22"
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port       = 0
-    to_port         = 0
-    protocol        = "-1"
-    cidr_blocks     = ["0.0.0.0/0"]
-  }
+  default     = "2.150"
 }
 
 resource "random_string" "admin_pass" {
-  length = 16
+  length  = 16
   special = true
 }
 
@@ -50,8 +13,8 @@ data "template_file" "jenkins_master_cloud_init_part_1" {
   vars {
     jenkins_version = "${var.jenkins_version}"
     admin_pass_hash = "admin_salt:${sha256("${random_string.admin_pass.result}{admin_salt}")}"
-    init_groovy = "${file("scripts/master-configure-security.groovy")}"
-    nginx_conf = "${file("scripts/master-nginx.conf")}"
+    init_groovy     = "${file("scripts/master-configure-security.groovy")}"
+    nginx_conf      = "${file("scripts/master-nginx.conf")}"
   }
 }
 
@@ -75,11 +38,13 @@ data "template_cloudinit_config" "jenkins_master_init" {
 }
 
 resource "aws_instance" "jenkins_master" {
-  ami              = "ami-05449f21272b4ee56"
-  instance_type    = "t2.micro"
-  key_name         = "aws"
-  security_groups  = ["${aws_security_group.jenkins_master.name}"]
-  user_data_base64 = "${data.template_cloudinit_config.jenkins_master_init.rendered}"
+  ami                         = "ami-05449f21272b4ee56"
+  instance_type               = "t2.micro"
+  associate_public_ip_address = true
+  key_name                    = "aws"
+  subnet_id                   = "${aws_subnet.main_public.id}"
+  vpc_security_group_ids      = ["${aws_security_group.jenkins_master.id}"]
+  user_data_base64            = "${data.template_cloudinit_config.jenkins_master_init.rendered}"
 }
 
 output "jenkins_master_public_dns" {
