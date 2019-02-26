@@ -9,11 +9,18 @@ variable "jenkins_version" {
 
 resource "aws_security_group" "jenkins_master" {
   name        = "jenkins_master"
-  description = "Allow inbound traffic over port 80 and 22"
+  description = "Allow inbound traffic over port 80, 443 and 22"
 
   ingress {
-    from_port   = 8080
-    to_port     = 8080
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -41,8 +48,10 @@ resource "random_string" "admin_pass" {
 data "template_file" "jenkins_master_cloud_init_part_1" {
   template = "${file("scripts/master-cloud-config.yml.tpl")}"
   vars {
+    jenkins_version = "${var.jenkins_version}"
     admin_pass_hash = "admin_salt:${sha256("${random_string.admin_pass.result}{admin_salt}")}"
     init_groovy = "${file("scripts/master-configure-security.groovy")}"
+    nginx_conf = "${file("scripts/master-nginx.conf")}"
   }
 }
 

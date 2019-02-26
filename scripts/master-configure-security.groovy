@@ -4,6 +4,7 @@ import hudson.security.GlobalMatrixAuthorizationStrategy
 import hudson.security.csrf.DefaultCrumbIssuer
 import jenkins.security.s2m.AdminWhitelistRule
 import java.util.regex.Matcher
+import jenkins.model.JenkinsLocationConfiguration
 
 def instance = Jenkins.getInstance()
 
@@ -42,3 +43,8 @@ Jenkins.instance.getInjector().getInstance(AdminWhitelistRule.class)
 
 println '--> disabling CLI over Remoting'
 Jenkins.instance.getDescriptor('jenkins.CLI').get().setEnabled(false)
+
+println '--> configuring url'
+def jlc = JenkinsLocationConfiguration.get()
+def publicHostName = new URL('http://169.254.169.254/latest/meta-data/public-hostname').getText()
+jlc.setUrl("https://$publicHostName")

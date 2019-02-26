@@ -1,23 +1,22 @@
 #!/bin/bash -e
 
-# Prevent auto service startup while installing packages.
-echo 'exit 101' > /usr/sbin/policy-rc.d
-chmod +x /usr/sbin/policy-rc.d
+# Configure Jenkins to skip the initial setup wizard.
+sed -i 's/^JAVA_ARGS="/JAVA_ARGS="-Djenkins.install.runSetupWizard=false /' /etc/default/jenkins
 
-# Install Jenkins from the official repository.
-echo 'deb http://pkg.jenkins.io/debian-stable binary/' > /etc/apt/sources.list.d/jenkins.list
-wget -q -O - https://pkg.jenkins.io/debian/jenkins.io.key | apt-key add -
-apt-get update
-apt-get install -y openjdk-8-jre jenkins=${jenkins_version}.*
-
-# Configure Jenkins to skip the initial setup wizard
-sed -i 's/^JAVA_ARGS=.*/JAVA_ARGS="-Djava.awt.headless=true -Djenkins.install.runSetupWizard=false"/' /etc/default/jenkins
-
-# Download plugins
+# Download plugins.
 mkdir /var/lib/jenkins/plugins
 cd /var/lib/jenkins/plugins
 wget https://updates.jenkins.io/${jenkins_version}/latest/matrix-auth.hpi
 chown -R jenkins:jenkins /var/lib/jenkins
 
-# Start Jenkins
+# Disable Nginx default welcome page.
+cd /etc/nginx
+rm sites-enabled/default
+
+# Generate a self-signed certificate for ssl communication.
+public_host_name=$(curl http://169.254.169.254/latest/meta-data/public-hostname)
+openssl req -newkey rsa:2028 -nodes -keyout server.pem -x509 -subj "/CN=$public_host_name" -days 1000 -out server.crt
+
+# Start Jenkins and Nginx.
 systemctl start jenkins
+systemctl start nginx

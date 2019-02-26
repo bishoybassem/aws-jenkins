@@ -1,12 +1,17 @@
 version: "3.5"
 services:
+  nginx:
+    image: jenkins-nginx
+    build:
+      context: .
+      dockerfile: NginxDockerfile
+    ports:
+    - 443:443
   master:
     image: jenkins-master
     build:
       context: .
       dockerfile: MasterDockerfile
-    ports:
-    - 8080:8080
   slave:
     image: jenkins-slave
     build:
