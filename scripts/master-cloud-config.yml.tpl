@@ -1,6 +1,10 @@
 #cloud-config
 
 bootcmd:
+# Enable packet forwarding and nat slave traffic.
+- sysctl -w net.ipv4.ip_forward=1
+- iptables -t nat -A POSTROUTING -s ${slaves_subnet} -o eth0 -j MASQUERADE
+
 # Prevent auto service startup while installing packages.
 - echo 'exit 101' > /usr/sbin/policy-rc.d
 - chmod +x /usr/sbin/policy-rc.d

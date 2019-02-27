@@ -15,6 +15,7 @@ data "template_file" "jenkins_master_cloud_init_part_1" {
     admin_pass_hash = "admin_salt:${sha256("${random_string.admin_pass.result}{admin_salt}")}"
     init_groovy     = "${file("scripts/master-configure-security.groovy")}"
     nginx_conf      = "${file("scripts/master-nginx.conf")}"
+    slaves_subnet   = "${aws_subnet.main_private.cidr_block}"
   }
 }
 
@@ -45,6 +46,8 @@ resource "aws_instance" "jenkins_master" {
   subnet_id                   = "${aws_subnet.main_public.id}"
   vpc_security_group_ids      = ["${aws_security_group.jenkins_master.id}"]
   user_data_base64            = "${data.template_cloudinit_config.jenkins_master_init.rendered}"
+  // Disable source_dest_check as the master node acts as NAT server for the slaves to access the internet.
+  source_dest_check           = false
 }
 
 output "jenkins_master_public_dns" {
