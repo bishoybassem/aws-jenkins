@@ -38,7 +38,7 @@ resource "aws_subnet" "main_private" {
 resource "aws_route_table" "main_private_route_table" {
   vpc_id = "${aws_vpc.main.id}"
 
-  // Route the traffic to the internet through the master node, i.e. the master node acts as a NAT server.
+  # Route the traffic to the internet through the master node, i.e. the master node acts as a NAT server.
   route {
     cidr_block = "0.0.0.0/0"
     instance_id = "${aws_instance.jenkins_master.id}"
@@ -50,8 +50,21 @@ resource "aws_route_table_association" "main_private_route_table_association" {
   route_table_id = "${aws_route_table.main_private_route_table.id}"
 }
 
+resource "aws_security_group" "jenkins_slave" {
+  description = "Allow inbound traffic over port 80, 443 and 22"
+  vpc_id      = "${aws_vpc.main.id}"
+}
+
+resource "aws_security_group_rule" "jenkins_slave_egress_allow_all" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = "${aws_security_group.jenkins_slave.id}"
+}
+
 resource "aws_security_group" "jenkins_master" {
-  name        = "jenkins_master"
   description = "Allow inbound traffic over port 80, 443 and 22"
   vpc_id      = "${aws_vpc.main.id}"
 
@@ -60,6 +73,15 @@ resource "aws_security_group" "jenkins_master" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  /* Allow slaves to connect to JNLP port 8081, and port 8082 (nginx) that automatically
+  authenticates them with 'slave' user. */
+  ingress {
+    from_port       = 8081
+    to_port         = 8082
+    protocol        = "tcp"
+    security_groups = ["${aws_security_group.jenkins_slave.id}"]
   }
 
   ingress {
@@ -84,24 +106,12 @@ resource "aws_security_group" "jenkins_master" {
   }
 }
 
-resource "aws_security_group" "jenkins_slave" {
-  name        = "jenkins_slave"
-  description = "Allow inbound traffic over port 80, 443 and 22"
-  vpc_id      = "${aws_vpc.main.id}"
-
-  // Only allow ssh connections from the master node, i.e. the master node acts as a bastion host.
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    security_groups = ["${aws_security_group.jenkins_master.id}"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+// Only allow ssh connections from the master node, i.e. the master node acts as a bastion host.
+resource "aws_security_group_rule" "jenkins_slave_ingress_allow_ssh" {
+  type                     = "ingress"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  source_security_group_id = "${aws_security_group.jenkins_master.id}"
+  security_group_id        = "${aws_security_group.jenkins_slave.id}"
 }
-

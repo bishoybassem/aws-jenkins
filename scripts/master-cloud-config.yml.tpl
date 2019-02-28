@@ -16,6 +16,9 @@ write_files:
 - path: /var/lib/jenkins/.admin_pass_hash
   permissions: '0400'
   content: ${admin_pass_hash}
+- path: /var/lib/jenkins/.slave_pass
+  permissions: '0400'
+  content: ${slave_pass}
 - path: /etc/nginx/conf.d/jenkins.conf
   permissions: '0640'
   encoding: b64
@@ -23,7 +26,9 @@ write_files:
 - path: /var/lib/jenkins/init.groovy
   permissions: '0644'
   encoding: b64
-  content: ${base64encode(init_groovy)}
+  content: ${base64encode(file("scripts/master-configure-security.groovy"))}
+
+hostname: ci-master
 
 apt:
   sources:
@@ -42,4 +47,3 @@ packages:
 power_state:
   delay: now
   mode: reboot
-  condition: ls /var/run/reboot-required

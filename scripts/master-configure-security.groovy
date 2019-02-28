@@ -1,4 +1,5 @@
 import jenkins.model.Jenkins
+import hudson.model.Computer
 import hudson.security.HudsonPrivateSecurityRealm
 import hudson.security.GlobalMatrixAuthorizationStrategy
 import hudson.security.csrf.DefaultCrumbIssuer
@@ -11,7 +12,9 @@ def instance = Jenkins.getInstance()
 if (instance.getSecurityRealm() == hudson.security.SecurityRealm.NO_AUTHENTICATION) {
     println '--> creating admin account'
     def securityRealm = new HudsonPrivateSecurityRealm(false)
+    def jenkinsHome = System.getenv('JENKINS_HOME')
     securityRealm.createAccount('admin', 'ignore_as_it_will_be_modified_below')
+    securityRealm.createAccount('slave', new File("$jenkinsHome/.slave_pass").text.trim())
     instance.setSecurityRealm(securityRealm)
 
     // Change the password for the admin user, by replacing the password hash in the config file. This is done
@@ -29,6 +32,12 @@ if (instance.getAuthorizationStrategy() == hudson.security.AuthorizationStrategy
     println '--> configuring permissions for admin account'
     def authStrategy = new GlobalMatrixAuthorizationStrategy()
     authStrategy.add(Jenkins.ADMINISTER, 'admin')
+    authStrategy.add(Jenkins.READ , 'slave')
+    authStrategy.add(Computer.CONFIGURE, 'slave')
+    authStrategy.add(Computer.CONNECT, 'slave')
+    authStrategy.add(Computer.CREATE, 'slave')
+    authStrategy.add(Computer.DELETE, 'slave')
+    authStrategy.add(Computer.DISCONNECT, 'slave')
     instance.setAuthorizationStrategy(authStrategy)
 }
 
@@ -48,3 +57,6 @@ println '--> configuring url'
 def jlc = JenkinsLocationConfiguration.get()
 def publicHostName = new URL('http://169.254.169.254/latest/meta-data/public-hostname').getText()
 jlc.setUrl("https://$publicHostName")
+
+println "--> setting agent port for JNLP"
+Jenkins.instance.setSlaveAgentPort(8081)

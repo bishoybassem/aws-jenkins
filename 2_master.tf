@@ -3,9 +3,25 @@ variable "jenkins_version" {
   default     = "2.150"
 }
 
+variable "swarm_plugin_version" {
+  default     = "3.15"
+}
+
 resource "random_string" "admin_pass" {
   length  = 16
   special = true
+}
+
+resource "random_string" "slave_pass" {
+  length  = 16
+  special = true
+}
+
+data "template_file" "jenkins_master_nginx_config" {
+  template = "${file("scripts/master-nginx.conf.tpl")}"
+  vars {
+    auth_header = "${base64encode("slave:${random_string.slave_pass.result}")}"
+  }
 }
 
 data "template_file" "jenkins_master_cloud_init_part_1" {
@@ -13,8 +29,8 @@ data "template_file" "jenkins_master_cloud_init_part_1" {
   vars {
     jenkins_version = "${var.jenkins_version}"
     admin_pass_hash = "admin_salt:${sha256("${random_string.admin_pass.result}{admin_salt}")}"
-    init_groovy     = "${file("scripts/master-configure-security.groovy")}"
-    nginx_conf      = "${file("scripts/master-nginx.conf")}"
+    slave_pass      = "${random_string.slave_pass.result}"
+    nginx_conf      = "${data.template_file.jenkins_master_nginx_config.rendered}"
     slaves_subnet   = "${aws_subnet.main_private.cidr_block}"
   }
 }
@@ -22,7 +38,8 @@ data "template_file" "jenkins_master_cloud_init_part_1" {
 data "template_file" "jenkins_master_cloud_init_part_2" {
   template = "${file("scripts/master-setup.sh.tpl")}"
   vars {
-    jenkins_version = "${var.jenkins_version}"
+    jenkins_version      = "${var.jenkins_version}"
+    swarm_plugin_version = "${var.swarm_plugin_version}"
   }
 }
 
@@ -48,6 +65,11 @@ resource "aws_instance" "jenkins_master" {
   user_data_base64            = "${data.template_cloudinit_config.jenkins_master_init.rendered}"
   // Disable source_dest_check as the master node acts as NAT server for the slaves to access the internet.
   source_dest_check           = false
+
+  // Wait until the master node starts.
+  provisioner "local-exec" {
+    command = " while ! nc -zv -w 2 ${aws_instance.jenkins_master.public_dns} 443; do sleep 5s; done"
+  }
 }
 
 output "jenkins_master_public_dns" {
