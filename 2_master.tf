@@ -1,9 +1,15 @@
+variable "key_pair_name" {
+  description = "Name of an existing EC2 key pair"
+  default     = "aws"
+}
+
 variable "jenkins_version" {
   description = "The jenkins version to use (major.minor only!)"
   default     = "2.150"
 }
 
 variable "swarm_plugin_version" {
+  description = "The swarm plugin version to use"
   default     = "3.15"
 }
 
@@ -59,7 +65,7 @@ resource "aws_instance" "jenkins_master" {
   ami                         = "ami-05449f21272b4ee56"
   instance_type               = "t2.micro"
   associate_public_ip_address = true
-  key_name                    = "aws"
+  key_name                    = "${var.key_pair_name}"
   subnet_id                   = "${aws_subnet.main_public.id}"
   vpc_security_group_ids      = ["${aws_security_group.jenkins_master.id}"]
   user_data_base64            = "${data.template_cloudinit_config.jenkins_master_init.rendered}"

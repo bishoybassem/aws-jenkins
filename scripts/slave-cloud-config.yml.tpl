@@ -5,8 +5,12 @@ write_files:
   permissions: '0644'
   encoding: b64
   content: ${base64encode(slave_service)}
+- path: /opt/swarm-client-logging.properties
+  permissions: '0644'
+  encoding: b64
+  content: ${base64encode(file("scripts/slave-logging.properties"))}
 
-hostname: ci-slave
+hostname: ci-slave${index}
 
 runcmd:
 - wget -O /opt/swarm-client.jar https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/${swarm_plugin_version}/swarm-client-${swarm_plugin_version}.jar

@@ -15,10 +15,10 @@ bootcmd:
 write_files:
 - path: /var/lib/jenkins/.admin_pass_hash
   permissions: '0400'
-  content: ${admin_pass_hash}
+  content: "${admin_pass_hash}"
 - path: /var/lib/jenkins/.slave_pass
   permissions: '0400'
-  content: ${slave_pass}
+  content: "${slave_pass}"
 - path: /etc/nginx/conf.d/jenkins.conf
   permissions: '0640'
   encoding: b64
