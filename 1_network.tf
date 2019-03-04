@@ -1,5 +1,10 @@
+variable "region" {
+  description = "Name of an existing EC2 key pair"
+  default     = "eu-central-1"
+}
+
 provider "aws" {
-  region = "eu-central-1"
+  region = "${var.region}"
 }
 
 resource "aws_vpc" "main" {
@@ -114,4 +119,10 @@ resource "aws_security_group_rule" "jenkins_slave_ingress_allow_ssh" {
   protocol                 = "tcp"
   source_security_group_id = "${aws_security_group.jenkins_master.id}"
   security_group_id        = "${aws_security_group.jenkins_slave.id}"
+}
+
+resource "aws_eip" "jenkins_master_ip" {
+  vpc        = true
+  instance   = "${aws_instance.jenkins_master.id}"
+  depends_on = ["aws_internet_gateway.main_gateway"]
 }

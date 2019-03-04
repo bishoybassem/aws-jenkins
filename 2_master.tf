@@ -78,6 +78,23 @@ resource "aws_instance" "jenkins_master" {
   }
 }
 
+resource "aws_cloudwatch_metric_alarm" "jenkins_recover_master" {
+  alarm_name          = "jenkins_recover_master"
+  alarm_description   = "Recover jenkins master node in case the system check fails for 2 minutes"
+  namespace           = "AWS/EC2"
+  metric_name         = "StatusCheckFailed_System"
+  period              = 60
+  statistic           = "Minimum"
+  comparison_operator = "GreaterThanThreshold"
+  threshold           = 0
+  evaluation_periods  = 1
+  dimensions {
+    InstanceId = "${aws_instance.jenkins_master.id}"
+  }
+  alarm_actions = ["arn:aws:automate:${var.region}:ec2:recover"]
+}
+
+
 output "jenkins_master_public_dns" {
   value = "${aws_instance.jenkins_master.public_dns}"
 }
