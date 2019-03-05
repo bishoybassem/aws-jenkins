@@ -111,7 +111,7 @@ resource "aws_security_group" "jenkins_master" {
   }
 }
 
-// Only allow ssh connections from the master node, i.e. the master node acts as a bastion host.
+# Only allow ssh connections from the master node, i.e. the master node acts as a bastion host.
 resource "aws_security_group_rule" "jenkins_slave_ingress_allow_ssh" {
   type                     = "ingress"
   from_port                = 22
@@ -123,6 +123,11 @@ resource "aws_security_group_rule" "jenkins_slave_ingress_allow_ssh" {
 
 resource "aws_eip" "jenkins_master_ip" {
   vpc        = true
-  instance   = "${aws_instance.jenkins_master.id}"
   depends_on = ["aws_internet_gateway.main_gateway"]
+}
+
+# Use ip association to avoid changing the ip in case the master instance changes.
+resource "aws_eip_association" "jenkins_master_ip_association" {
+  allocation_id = "${aws_eip.jenkins_master_ip.id}"
+  instance_id   = "${aws_instance.jenkins_master.id}"
 }

@@ -15,5 +15,4 @@ cd /etc/nginx
 rm sites-enabled/default
 
 # Generate a self-signed certificate for ssl communication.
-public_host_name=$(curl http://169.254.169.254/latest/meta-data/public-hostname)
-openssl req -newkey rsa:2028 -nodes -keyout server.pem -x509 -subj "/CN=$public_host_name" -days 1000 -out server.crt
+openssl req -newkey rsa:2028 -nodes -keyout server.pem -x509 -subj "/CN=${master_public_dns}" -days 1000 -out server.crt
