@@ -1,7 +1,7 @@
 
 # AWS Jenkins
 
-This project sets up a secure scalable Jenkins cluster on AWS using Terraform. 
+This project sets up a highly available, scalable, and secure Jenkins cluster on AWS using Terraform. 
 
 ## Features
 The setup features the following:
@@ -12,8 +12,11 @@ The setup features the following:
 (due to free tier limitations, but ideally it would be a different machine).
 * The bootstrapping of the master and the slaves is performed at the startup of the machines with cloud-init.
 * A reverse-proxy (Nginx) runs on master and enforces HTTPS communication (self-signed ssl certificate). 
-* Terraform generates a secure random password for the admin account, and only passes it's hash to the master's init scripts. This way, the password is kept safe and does not leave the place where Terraform store's its state.
-* Using the [Swarm plugin](https://wiki.jenkins.io/display/JENKINS/Swarm+Plugin), the slaves are able to join the master and manage their own configuration, thus simplifying scaling up/down the slaves. 
+* Terraform generates a secure random password for the admin account, and only passes its hash to the master's init scripts. This way, the password is kept safe and does not leave the place where Terraform store's its state.
+* Using the [Swarm plugin](https://wiki.jenkins.io/display/JENKINS/Swarm+Plugin), the slaves are able to join the master and manage their own configuration, thus simplifying scaling up/down the slaves.
+* CloudWatch alarms that automatically:
+  * Recover the master machine in case of system failures.
+  * Reboot the master in case the jenkins service is down/not responding (metrics collected by CloudWatch agent using StatsD protocol).
 
 ## Steps
 1. Install Terraform (used version 0.11.11) and check that  `~/.aws/credentials` is present and contains the access keys of your IAM user ([guide here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)). 

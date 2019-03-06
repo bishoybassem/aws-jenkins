@@ -28,6 +28,32 @@ locals {
   master_public_dns = "ec2-${replace(aws_eip.jenkins_master_ip.public_ip, ".", "-")}.${var.region}.compute.amazonaws.com"
 }
 
+data "aws_iam_policy_document" "ec2_assume_role_policy" {
+  statement {
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "cloud_watch_ec2_role" {
+  name               = "cloud-watch-ec2-role"
+  assume_role_policy = "${data.aws_iam_policy_document.ec2_assume_role_policy.json}"
+}
+
+resource "aws_iam_role_policy_attachment" "cloud_watch_ec2_role_attachment" {
+  role       = "${aws_iam_role.cloud_watch_ec2_role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+resource "aws_iam_instance_profile" "cloud_watch_ec2_role_instance_profile" {
+  name = "${aws_iam_role.cloud_watch_ec2_role.name}"
+  role = "${aws_iam_role.cloud_watch_ec2_role.name}"
+}
+
 data "template_file" "jenkins_master_nginx_config" {
   template = "${file("scripts/master-nginx.conf.tpl")}"
   vars {
@@ -77,6 +103,7 @@ resource "aws_instance" "jenkins_master" {
   user_data_base64            = "${data.template_cloudinit_config.jenkins_master_init.rendered}"
   // Disable source_dest_check as the master node acts as NAT server for the slaves to access the internet.
   source_dest_check           = false
+  iam_instance_profile        = "${aws_iam_instance_profile.cloud_watch_ec2_role_instance_profile.name}"
 
   // Wait until the master node starts.
   provisioner "local-exec" {
@@ -86,18 +113,35 @@ resource "aws_instance" "jenkins_master" {
 
 resource "aws_cloudwatch_metric_alarm" "jenkins_recover_master" {
   alarm_name          = "jenkins_recover_master"
-  alarm_description   = "Recover jenkins master node in case the system check fails for 2 minutes"
+  alarm_description   = "Recover master machine in case the system check fails for 2 minutes"
   namespace           = "AWS/EC2"
   metric_name         = "StatusCheckFailed_System"
   period              = 60
   statistic           = "Minimum"
   comparison_operator = "GreaterThanThreshold"
   threshold           = 0
-  evaluation_periods  = 1
+  evaluation_periods  = 2
   dimensions {
     InstanceId = "${aws_instance.jenkins_master.id}"
   }
   alarm_actions = ["arn:aws:automate:${var.region}:ec2:recover"]
+}
+
+resource "aws_cloudwatch_metric_alarm" "jenkins_restart_master" {
+  alarm_name          = "jenkins_restart_master"
+  alarm_description   = "Restart master machine in case the jenkins service is down for 3 minutes"
+  namespace           = "CWAgent"
+  metric_name         = "jenkins_service"
+  period              = 60
+  statistic           = "Minimum"
+  comparison_operator = "LessThanThreshold"
+  threshold           = 1
+  evaluation_periods  = 3
+  dimensions {
+    InstanceId  = "${aws_instance.jenkins_master.id}"
+    metric_type = "gauge"
+  }
+  alarm_actions = ["arn:aws:automate:${var.region}:ec2:reboot"]
 }
 
 output "jenkins_master_public_dns" {
