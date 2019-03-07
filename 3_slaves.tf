@@ -2,6 +2,10 @@ variable "slave_count" {
   default = 1
 }
 
+variable "slave_max_count" {
+  default = 3
+}
+
 data "template_file" "jenkins_slave_service" {
   template = "${file("scripts/slave-jenkins.service.tpl")}"
   vars {
@@ -11,25 +15,35 @@ data "template_file" "jenkins_slave_service" {
 
 data "template_file" "jenkins_slave_cloud_init" {
   template = "${file("scripts/slave-cloud-config.yml.tpl")}"
-  count    = "${var.slave_count}"
   vars {
     swarm_plugin_version = "${var.swarm_plugin_version}"
     slave_service        = "${data.template_file.jenkins_slave_service.rendered}"
-    index                = "${format("%02d", count.index + 1)}"
   }
 }
 
-resource "aws_instance" "jenkins_slave" {
-  ami                         = "ami-05449f21272b4ee56"
+resource "aws_launch_template" "jenkins_slave_launch_template" {
+  image_id                    = "ami-05449f21272b4ee56"
   instance_type               = "t2.micro"
-  associate_public_ip_address = false
   key_name                    = "${var.key_pair_name}"
-  subnet_id                   = "${aws_subnet.main_private.id}"
   vpc_security_group_ids      = ["${aws_security_group.jenkins_slave.id}"]
-  user_data                   = "${element(data.template_file.jenkins_slave_cloud_init.*.rendered, count.index)}"
-  count                       = "${var.slave_count}"
+  user_data                   = "${base64encode(data.template_file.jenkins_slave_cloud_init.rendered)}"
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "jenkins_slave"
+    }
+  }
 }
 
-output "jenkins_slave_private_ips" {
-  value = "${aws_instance.jenkins_slave.*.private_ip}"
+resource "aws_autoscaling_group" "jenkins_slave_autoscaling_group" {
+  name                = "jenkins_slaves"
+  desired_capacity    = "${var.slave_count}"
+  min_size            = "${var.slave_count}"
+  max_size            = "${var.slave_max_count}"
+  vpc_zone_identifier = ["${aws_subnet.main_private.id}"]
+
+  launch_template {
+    id      = "${aws_launch_template.jenkins_slave_launch_template.id}"
+    version = "$$Latest"
+  }
 }

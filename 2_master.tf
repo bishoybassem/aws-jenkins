@@ -104,7 +104,9 @@ resource "aws_instance" "jenkins_master" {
   // Disable source_dest_check as the master node acts as NAT server for the slaves to access the internet.
   source_dest_check           = false
   iam_instance_profile        = "${aws_iam_instance_profile.cloud_watch_ec2_role_instance_profile.name}"
-
+  tags = {
+    Name = "jenkins_master"
+  }
   // Wait until the master node starts.
   provisioner "local-exec" {
     command = " while ! nc -zv -w 2 ${aws_instance.jenkins_master.public_dns} 443; do sleep 5s; done"

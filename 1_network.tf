@@ -56,6 +56,7 @@ resource "aws_route_table_association" "main_private_route_table_association" {
 }
 
 resource "aws_security_group" "jenkins_slave" {
+  name        = "jenkins_slave"
   description = "Allow inbound traffic over port 80, 443 and 22"
   vpc_id      = "${aws_vpc.main.id}"
 }
@@ -70,6 +71,7 @@ resource "aws_security_group_rule" "jenkins_slave_egress_allow_all" {
 }
 
 resource "aws_security_group" "jenkins_master" {
+  name        = "jenkins_master"
   description = "Allow inbound traffic over port 80, 443 and 22"
   vpc_id      = "${aws_vpc.main.id}"
 

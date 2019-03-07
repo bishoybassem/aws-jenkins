@@ -33,16 +33,17 @@ The setup features the following:
    
    admin_pass = ****************
    jenkins_master_public_dns = ec2-35-157-225-150.eu-central-1.compute.amazonaws.com
-   jenkins_slave_private_ips = [
-       10.0.1.189,
-       10.0.1.201
-   ]
    ```
 4. Open the shown public dns in your browser, and login as `admin` with the output password.
 
 5. To SSH into one of the slaves, SSH first into the master machine and then into the slave, or shortly as:
    ```bash
    ssh -J admin@ec2-35-157-225-150.eu-central-1.compute.amazonaws.com admin@10.0.1.189
+   ```
+   to find out the private ips of the slaves, check the web console, or use the cli as:
+   ```bash
+   aws ec2 describe-instances --filter 'Name=tag:aws:autoscaling:groupName,Values=jenkins_slaves' \
+     --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,State.Name]' --output text
    ```
 
 6. Finally, to delete and free up all used resources:

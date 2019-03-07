@@ -10,7 +10,7 @@ write_files:
   encoding: b64
   content: ${base64encode(file("scripts/slave-logging.properties"))}
 
-hostname: ci-slave${index}
+hostname: ci-slave
 
 runcmd:
 - wget -O /opt/swarm-client.jar https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/${swarm_plugin_version}/swarm-client-${swarm_plugin_version}.jar
