@@ -23,6 +23,11 @@ resource "random_string" "slave_pass" {
   special = true
 }
 
+resource "random_string" "monitoring_pass" {
+  length  = 16
+  special = true
+}
+
 locals {
   # Workaround the issue that terraform doesn't update the public dns name of the instance after elastic ip association.
   master_public_dns = "ec2-${replace(aws_eip.jenkins_master_ip.public_ip, ".", "-")}.${var.region}.compute.amazonaws.com"
@@ -67,6 +72,7 @@ data "template_file" "jenkins_master_cloud_init_part_1" {
     jenkins_version = "${var.jenkins_version}"
     admin_pass_hash = "admin_salt:${sha256("${random_string.admin_pass.result}{admin_salt}")}"
     slave_pass      = "${random_string.slave_pass.result}"
+    monitoring_pass = "${random_string.monitoring_pass.result}"
     nginx_conf      = "${data.template_file.jenkins_master_nginx_config.rendered}"
     slaves_subnet   = "${aws_subnet.main_private.cidr_block}"
   }

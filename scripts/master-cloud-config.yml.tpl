@@ -19,6 +19,9 @@ write_files:
 - path: /var/lib/jenkins/.slave_pass
   permissions: '0400'
   content: "${slave_pass}"
+- path: /var/lib/jenkins/.monitoring_pass
+  permissions: '0400'
+  content: "${monitoring_pass}"
 - path: /etc/nginx/conf.d/jenkins.conf
   permissions: '0640'
   encoding: b64

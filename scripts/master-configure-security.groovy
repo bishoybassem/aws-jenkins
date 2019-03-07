@@ -1,5 +1,6 @@
 import jenkins.model.Jenkins
 import hudson.model.Computer
+import hudson.model.Job
 import hudson.security.HudsonPrivateSecurityRealm
 import hudson.security.GlobalMatrixAuthorizationStrategy
 import hudson.security.csrf.DefaultCrumbIssuer
@@ -15,6 +16,7 @@ if (instance.getSecurityRealm() == hudson.security.SecurityRealm.NO_AUTHENTICATI
     def jenkinsHome = System.getenv('JENKINS_HOME')
     securityRealm.createAccount('admin', 'ignore_as_it_will_be_modified_below')
     securityRealm.createAccount('slave', new File("$jenkinsHome/.slave_pass").text.trim())
+    securityRealm.createAccount('monitoring', new File("$jenkinsHome/.monitoring_pass").text.trim())
     instance.setSecurityRealm(securityRealm)
 
     // Change the password for the admin user, by replacing the password hash in the config file. This is done
@@ -32,12 +34,14 @@ if (instance.getAuthorizationStrategy() == hudson.security.AuthorizationStrategy
     println '--> configuring permissions for admin account'
     def authStrategy = new GlobalMatrixAuthorizationStrategy()
     authStrategy.add(Jenkins.ADMINISTER, 'admin')
-    authStrategy.add(Jenkins.READ , 'slave')
+    authStrategy.add(Jenkins.READ, 'slave')
     authStrategy.add(Computer.CONFIGURE, 'slave')
     authStrategy.add(Computer.CONNECT, 'slave')
     authStrategy.add(Computer.CREATE, 'slave')
     authStrategy.add(Computer.DELETE, 'slave')
     authStrategy.add(Computer.DISCONNECT, 'slave')
+    authStrategy.add(Jenkins.READ, 'monitoring')
+    authStrategy.add(Job.DISCOVER, 'monitoring')
     instance.setAuthorizationStrategy(authStrategy)
 }
 
