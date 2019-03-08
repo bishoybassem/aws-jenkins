@@ -36,8 +36,9 @@ resource "aws_route_table_association" "main_public_route_table_association" {
 }
 
 resource "aws_subnet" "main_private" {
-  vpc_id     = "${aws_vpc.main.id}"
-  cidr_block = "10.0.1.128/25"
+  vpc_id            = "${aws_vpc.main.id}"
+  cidr_block        = "10.0.1.128/25"
+  availability_zone = "${aws_subnet.main_public.availability_zone}"
 }
 
 resource "aws_route_table" "main_private_route_table" {

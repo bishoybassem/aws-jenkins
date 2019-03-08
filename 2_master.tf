@@ -61,6 +61,7 @@ resource "aws_iam_instance_profile" "cloud_watch_ec2_role_instance_profile" {
 
 data "template_file" "jenkins_master_nginx_config" {
   template = "${file("scripts/master-nginx.conf.tpl")}"
+
   vars {
     auth_header = "${base64encode("slave:${random_string.slave_pass.result}")}"
   }
@@ -68,6 +69,7 @@ data "template_file" "jenkins_master_nginx_config" {
 
 data "template_file" "jenkins_master_cloud_init_part_1" {
   template = "${file("scripts/master-cloud-config.yml.tpl")}"
+
   vars {
     jenkins_version = "${var.jenkins_version}"
     admin_pass_hash = "admin_salt:${sha256("${random_string.admin_pass.result}{admin_salt}")}"
@@ -80,6 +82,7 @@ data "template_file" "jenkins_master_cloud_init_part_1" {
 
 data "template_file" "jenkins_master_cloud_init_part_2" {
   template = "${file("scripts/master-setup.sh.tpl")}"
+
   vars {
     jenkins_version      = "${var.jenkins_version}"
     swarm_plugin_version = "${var.swarm_plugin_version}"
@@ -110,9 +113,10 @@ resource "aws_instance" "jenkins_master" {
   // Disable source_dest_check as the master node acts as NAT server for the slaves to access the internet.
   source_dest_check           = false
   iam_instance_profile        = "${aws_iam_instance_profile.cloud_watch_ec2_role_instance_profile.name}"
-  tags = {
+  tags                        = {
     Name = "jenkins_master"
   }
+
   // Wait until the master node starts.
   provisioner "local-exec" {
     command = " while ! nc -zv -w 2 ${aws_instance.jenkins_master.public_dns} 443; do sleep 5s; done"
@@ -129,10 +133,11 @@ resource "aws_cloudwatch_metric_alarm" "jenkins_recover_master" {
   comparison_operator = "GreaterThanThreshold"
   threshold           = 0
   evaluation_periods  = 2
+  alarm_actions       = ["arn:aws:automate:${var.region}:ec2:recover"]
+
   dimensions {
     InstanceId = "${aws_instance.jenkins_master.id}"
   }
-  alarm_actions = ["arn:aws:automate:${var.region}:ec2:recover"]
 }
 
 resource "aws_cloudwatch_metric_alarm" "jenkins_restart_master" {
@@ -145,11 +150,12 @@ resource "aws_cloudwatch_metric_alarm" "jenkins_restart_master" {
   comparison_operator = "LessThanThreshold"
   threshold           = 1
   evaluation_periods  = 3
+  alarm_actions       = ["arn:aws:automate:${var.region}:ec2:reboot"]
+
   dimensions {
     InstanceId  = "${aws_instance.jenkins_master.id}"
     metric_type = "gauge"
   }
-  alarm_actions = ["arn:aws:automate:${var.region}:ec2:reboot"]
 }
 
 output "jenkins_master_public_dns" {
