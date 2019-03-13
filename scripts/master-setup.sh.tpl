@@ -24,4 +24,4 @@ dpkg -i -E ./amazon-cloudwatch-agent.deb
 /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
 
 # Configure a cron job to push metrics to CloudWatch agent using StatsD protocol.
-echo '* * * * * /usr/local/bin/push-monitoring-metrics'| crontab -u jenkins -
+echo '* * * * * /usr/local/bin/push-monitoring-metrics' | crontab -u jenkins -
