@@ -44,19 +44,19 @@ data "aws_iam_policy_document" "ec2_assume_role_policy" {
   }
 }
 
-resource "aws_iam_role" "cloud_watch_ec2_role" {
-  name               = "cloud-watch-ec2-role"
+resource "aws_iam_role" "jenkins_master_iam_role" {
+  name               = "jenkins_master_iam_role"
   assume_role_policy = "${data.aws_iam_policy_document.ec2_assume_role_policy.json}"
 }
 
-resource "aws_iam_role_policy_attachment" "cloud_watch_ec2_role_attachment" {
-  role       = "${aws_iam_role.cloud_watch_ec2_role.name}"
+resource "aws_iam_role_policy_attachment" "jenkins_master_iam_role_policy_attachment" {
+  role       = "${aws_iam_role.jenkins_master_iam_role.name}"
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
-resource "aws_iam_instance_profile" "cloud_watch_ec2_role_instance_profile" {
-  name = "${aws_iam_role.cloud_watch_ec2_role.name}"
-  role = "${aws_iam_role.cloud_watch_ec2_role.name}"
+resource "aws_iam_instance_profile" "jenkins_master_iam_role_instance_profile" {
+  name = "${aws_iam_role.jenkins_master_iam_role.name}"
+  role = "${aws_iam_role.jenkins_master_iam_role.name}"
 }
 
 data "aws_ami" "debian_stretch_latest_ami" {
@@ -122,7 +122,7 @@ resource "aws_instance" "jenkins_master" {
   user_data_base64            = "${data.template_cloudinit_config.jenkins_master_cloud_init.rendered}"
   // Disable source_dest_check as the master node acts as NAT server for the slaves to access the internet.
   source_dest_check           = false
-  iam_instance_profile        = "${aws_iam_instance_profile.cloud_watch_ec2_role_instance_profile.name}"
+  iam_instance_profile        = "${aws_iam_instance_profile.jenkins_master_iam_role_instance_profile.name}"
   tags                        = {
     Name = "jenkins_master"
   }

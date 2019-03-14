@@ -6,36 +6,42 @@ variable "slave_max_count" {
   default = 3
 }
 
-resource "aws_iam_role" "autoscaling_lifecycle_ec2_role" {
-  name               = "autoscaling-lifecycle-ec2-role"
+resource "aws_iam_role" "jenkins_slave_iam_role" {
+  name               = "jenkins_slave_iam_role"
   assume_role_policy = "${data.aws_iam_policy_document.ec2_assume_role_policy.json}"
 }
 
-data "aws_iam_policy_document" "autoscaling_lifecycle_policy_document" {
+data "aws_iam_policy_document" "jenkins_slave_iam_policy_document" {
   statement {
     actions   = [
-      "autoscaling:DescribeAutoScalingInstances",
-      "autoscaling:CompleteLifecycleAction",
-      "autoscaling:RecordLifecycleActionHeartbeat"
+      "autoscaling:DescribeAutoScalingInstances"
     ]
     resources = ["*"]
   }
+
+  statement {
+    actions   = [
+      "autoscaling:CompleteLifecycleAction",
+      "autoscaling:RecordLifecycleActionHeartbeat"
+    ]
+    resources = ["arn:aws:autoscaling:${var.region}:${data.aws_caller_identity.current.account_id}:autoScalingGroup:*:autoScalingGroupName/jenkins_slaves"]
+  }
 }
 
-resource "aws_iam_role_policy" "autoscaling_lifecycle_ec2_role_policy" {
-  name   = "autoscaling_lifecycle_ec2_role_policy"
-  role   = "${aws_iam_role.autoscaling_lifecycle_ec2_role.id}"
-  policy = "${data.aws_iam_policy_document.autoscaling_lifecycle_policy_document.json}"
+resource "aws_iam_role_policy" "jenkins_slave_iam_role_policy" {
+  name   = "jenkins_slave_iam_role_policy"
+  role   = "${aws_iam_role.jenkins_slave_iam_role.id}"
+  policy = "${data.aws_iam_policy_document.jenkins_slave_iam_policy_document.json}"
 }
 
-resource "aws_iam_role_policy_attachment" "cloud_watch_autoscaling_lifecycle_ec2_role" {
-  role       = "${aws_iam_role.autoscaling_lifecycle_ec2_role.name}"
+resource "aws_iam_role_policy_attachment" "jenkins_slave_iam_role_policy_attachment" {
+  role       = "${aws_iam_role.jenkins_slave_iam_role.name}"
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
-resource "aws_iam_instance_profile" "autoscaling_lifecycle_ec2_role_instance_profile" {
-  name = "${aws_iam_role.autoscaling_lifecycle_ec2_role.name}"
-  role = "${aws_iam_role.autoscaling_lifecycle_ec2_role.name}"
+resource "aws_iam_instance_profile" "jenkins_slave_iam_role_instance_profile" {
+  name = "${aws_iam_role.jenkins_slave_iam_role.name}"
+  role = "${aws_iam_role.jenkins_slave_iam_role.name}"
 }
 
 locals {
@@ -96,7 +102,7 @@ resource "aws_launch_template" "jenkins_slave_launch_template" {
   user_data                   = "${data.template_cloudinit_config.jenkins_slave_cloud_init.rendered}"
 
   iam_instance_profile {
-    name = "${aws_iam_instance_profile.autoscaling_lifecycle_ec2_role_instance_profile.name}"
+    name = "${aws_iam_instance_profile.jenkins_slave_iam_role_instance_profile.name}"
   }
 
   tag_specifications {
