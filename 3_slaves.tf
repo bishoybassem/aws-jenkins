@@ -65,7 +65,7 @@ data "template_file" "jenkins_slave_cloud_init" {
 }
 
 resource "aws_launch_template" "jenkins_slave_launch_template" {
-  image_id                    = "ami-05449f21272b4ee56"
+  image_id                    = "${data.aws_ami.debian_stretch_latest_ami.id}"
   instance_type               = "t2.micro"
   key_name                    = "${var.key_pair_name}"
   vpc_security_group_ids      = ["${aws_security_group.jenkins_slave.id}"]

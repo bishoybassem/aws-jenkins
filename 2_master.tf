@@ -59,6 +59,16 @@ resource "aws_iam_instance_profile" "cloud_watch_ec2_role_instance_profile" {
   role = "${aws_iam_role.cloud_watch_ec2_role.name}"
 }
 
+data "aws_ami" "debian_stretch_latest_ami" {
+  most_recent      = true
+  owners           = ["379101102735"]
+
+  filter {
+    name = "name"
+    values = ["debian-stretch-hvm-x86_64-gp2-*"]
+  }
+}
+
 data "template_file" "jenkins_master_nginx_config" {
   template = "${file("scripts/master-nginx.conf.tpl")}"
 
@@ -103,7 +113,7 @@ data "template_cloudinit_config" "jenkins_master_init" {
 }
 
 resource "aws_instance" "jenkins_master" {
-  ami                         = "ami-05449f21272b4ee56"
+  ami                         = "${data.aws_ami.debian_stretch_latest_ami.id}"
   instance_type               = "t2.micro"
   associate_public_ip_address = true
   key_name                    = "${var.key_pair_name}"
