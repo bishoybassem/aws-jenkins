@@ -1,0 +1,22 @@
+{
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/swarmclient*",
+            "log_group_name": "jenkins",
+            "log_stream_name": "slave-{instance_id}",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S"
+          },
+          {
+            "file_path": "/var/log/cloud-init-output.log",
+            "log_group_name": "jenkins",
+            "log_stream_name": "slave-{instance_id}-cloud-init"
+          }
+        ]
+      }
+    },
+    "log_stream_name": "{instance_id}"
+  }
+}

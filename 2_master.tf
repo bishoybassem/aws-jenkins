@@ -100,7 +100,7 @@ data "template_file" "jenkins_master_cloud_init_part_2" {
   }
 }
 
-data "template_cloudinit_config" "jenkins_master_init" {
+data "template_cloudinit_config" "jenkins_master_cloud_init" {
   part {
     content_type = "text/cloud-config"
     content      = "${data.template_file.jenkins_master_cloud_init_part_1.rendered}"
@@ -119,7 +119,7 @@ resource "aws_instance" "jenkins_master" {
   key_name                    = "${var.key_pair_name}"
   subnet_id                   = "${aws_subnet.main_public.id}"
   vpc_security_group_ids      = ["${aws_security_group.jenkins_master.id}"]
-  user_data_base64            = "${data.template_cloudinit_config.jenkins_master_init.rendered}"
+  user_data_base64            = "${data.template_cloudinit_config.jenkins_master_cloud_init.rendered}"
   // Disable source_dest_check as the master node acts as NAT server for the slaves to access the internet.
   source_dest_check           = false
   iam_instance_profile        = "${aws_iam_instance_profile.cloud_watch_ec2_role_instance_profile.name}"
@@ -167,6 +167,12 @@ resource "aws_cloudwatch_metric_alarm" "jenkins_restart_master" {
     metric_type = "gauge"
   }
 }
+
+resource "aws_cloudwatch_log_group" "jenkins_log_group" {
+  name              = "jenkins"
+  retention_in_days = 14
+}
+
 
 output "jenkins_master_public_dns" {
   value = "${local.master_public_dns}"

@@ -17,7 +17,7 @@ rm sites-enabled/default
 # Generate a self-signed certificate for ssl communication.
 openssl req -newkey rsa:2028 -nodes -keyout server.pem -x509 -subj "/CN=${master_public_dns}" -days 1000 -out server.crt
 
-# Install and start CloudWatch agent.
+# Install and configure CloudWatch agent.
 cd /opt
 wget https://s3.amazonaws.com/amazoncloudwatch-agent/debian/amd64/latest/amazon-cloudwatch-agent.deb
 dpkg -i -E ./amazon-cloudwatch-agent.deb

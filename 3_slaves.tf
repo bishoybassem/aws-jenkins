@@ -28,6 +28,11 @@ resource "aws_iam_role_policy" "autoscaling_lifecycle_ec2_role_policy" {
   policy = "${data.aws_iam_policy_document.autoscaling_lifecycle_policy_document.json}"
 }
 
+resource "aws_iam_role_policy_attachment" "cloud_watch_autoscaling_lifecycle_ec2_role" {
+  role       = "${aws_iam_role.autoscaling_lifecycle_ec2_role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 resource "aws_iam_instance_profile" "autoscaling_lifecycle_ec2_role_instance_profile" {
   name = "${aws_iam_role.autoscaling_lifecycle_ec2_role.name}"
   role = "${aws_iam_role.autoscaling_lifecycle_ec2_role.name}"
@@ -53,14 +58,33 @@ data "template_file" "jenkins_slave_monitor_lifecycle_script" {
   }
 }
 
-data "template_file" "jenkins_slave_cloud_init" {
+data "template_file" "jenkins_slave_cloud_init_part_1" {
   template = "${file("scripts/slave-cloud-config.yml.tpl")}"
 
   vars {
-    swarm_plugin_version     = "${var.swarm_plugin_version}"
     slave_service            = "${data.template_file.jenkins_slave_service.rendered}"
     monitor_lifecycle_script = "${data.template_file.jenkins_slave_monitor_lifecycle_script.rendered}"
     aws_region               = "${var.region}"
+  }
+}
+
+data "template_file" "jenkins_slave_cloud_init_part_2" {
+  template = "${file("scripts/slave-setup.sh.tpl")}"
+
+  vars {
+    swarm_plugin_version = "${var.swarm_plugin_version}"
+  }
+}
+
+data "template_cloudinit_config" "jenkins_slave_cloud_init" {
+  part {
+    content_type = "text/cloud-config"
+    content      = "${data.template_file.jenkins_slave_cloud_init_part_1.rendered}"
+  }
+
+  part {
+    content_type = "text/x-shellscript"
+    content      = "${data.template_file.jenkins_slave_cloud_init_part_2.rendered}"
   }
 }
 
@@ -69,7 +93,7 @@ resource "aws_launch_template" "jenkins_slave_launch_template" {
   instance_type               = "t2.micro"
   key_name                    = "${var.key_pair_name}"
   vpc_security_group_ids      = ["${aws_security_group.jenkins_slave.id}"]
-  user_data                   = "${base64encode(data.template_file.jenkins_slave_cloud_init.rendered)}"
+  user_data                   = "${data.template_cloudinit_config.jenkins_slave_cloud_init.rendered}"
 
   iam_instance_profile {
     name = "${aws_iam_instance_profile.autoscaling_lifecycle_ec2_role_instance_profile.name}"

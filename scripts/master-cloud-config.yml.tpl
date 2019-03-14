@@ -32,20 +32,8 @@ write_files:
   content: ${base64encode(file("scripts/master-configure-security.groovy"))}
 - path: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
   permissions: '0644'
-  content: |
-    {
-      "metrics": {
-        "metrics_collected": {
-          "statsd": {
-            "metrics_collection_interval": 60,
-            "metrics_aggregation_interval": 0
-          }
-        },
-        "append_dimensions": {
-          "InstanceId": "$${aws:InstanceId}"
-        }
-      }
-    }
+  encoding: b64
+  content: ${base64encode(file("scripts/master-cloudwatch-agent-config.json"))}
 - path: /usr/local/bin/push-monitoring-metrics
   permissions: '0755'
   encoding: b64
