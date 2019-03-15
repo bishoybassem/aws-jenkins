@@ -28,11 +28,6 @@ resource "random_string" "monitoring_pass" {
   special = true
 }
 
-locals {
-  # Workaround the issue that terraform doesn't update the public dns name of the instance after elastic ip association.
-  master_public_dns = "ec2-${replace(aws_eip.jenkins_master_ip.public_ip, ".", "-")}.${var.region}.compute.amazonaws.com"
-}
-
 data "aws_iam_policy_document" "ec2_assume_role_policy" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -90,16 +85,6 @@ data "template_file" "jenkins_master_cloud_init_part_1" {
   }
 }
 
-data "template_file" "jenkins_master_cloud_init_part_2" {
-  template = "${file("scripts/master-setup.sh.tpl")}"
-
-  vars {
-    jenkins_version      = "${var.jenkins_version}"
-    swarm_plugin_version = "${var.swarm_plugin_version}"
-    master_public_dns    = "${local.master_public_dns}"
-  }
-}
-
 data "template_cloudinit_config" "jenkins_master_cloud_init" {
   part {
     content_type = "text/cloud-config"
@@ -108,7 +93,7 @@ data "template_cloudinit_config" "jenkins_master_cloud_init" {
 
   part {
     content_type = "text/x-shellscript"
-    content      = "${data.template_file.jenkins_master_cloud_init_part_2.rendered}"
+    content      = "${file("scripts/master-setup.sh")}"
   }
 }
 
@@ -124,7 +109,9 @@ resource "aws_instance" "jenkins_master" {
   source_dest_check           = false
   iam_instance_profile        = "${aws_iam_instance_profile.jenkins_master_iam_role_instance_profile.name}"
   tags                        = {
-    Name = "jenkins_master"
+    Name               = "jenkins_master"
+    JenkinsVersion     = "${var.jenkins_version}"
+    SwarmPluginVersion = "${var.swarm_plugin_version}"
   }
 
   // Wait until the master node starts.
@@ -173,9 +160,9 @@ resource "aws_cloudwatch_log_group" "jenkins_log_group" {
   retention_in_days = 14
 }
 
-
 output "jenkins_master_public_dns" {
-  value = "${local.master_public_dns}"
+  # Workaround the issue that terraform doesn't update the public dns name of the instance after elastic ip association.
+  value = "ec2-${replace(aws_eip.jenkins_master_ip.public_ip, ".", "-")}.${var.region}.compute.amazonaws.com"
 }
 
 output "admin_pass" {

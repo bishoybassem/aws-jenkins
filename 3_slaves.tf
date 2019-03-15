@@ -14,7 +14,8 @@ resource "aws_iam_role" "jenkins_slave_iam_role" {
 data "aws_iam_policy_document" "jenkins_slave_iam_policy_document" {
   statement {
     actions   = [
-      "autoscaling:DescribeAutoScalingInstances"
+      "autoscaling:DescribeAutoScalingInstances",
+      "ec2:DescribeAddresses"
     ]
     resources = ["*"]
   }
@@ -44,42 +45,8 @@ resource "aws_iam_instance_profile" "jenkins_slave_iam_role_instance_profile" {
   role = "${aws_iam_role.jenkins_slave_iam_role.name}"
 }
 
-locals {
-  master_internal_url = "http://${aws_instance.jenkins_master.private_ip}:8082"
-}
-
-data "template_file" "jenkins_slave_service" {
-  template = "${file("scripts/slave-jenkins.service.tpl")}"
-
-  vars {
-    master_url = "${local.master_internal_url}"
-  }
-}
-
-data "template_file" "jenkins_slave_monitor_lifecycle_script" {
-  template = "${file("scripts/slave-monitor-lifecycle.sh.tpl")}"
-
-  vars {
-    master_url = "${local.master_internal_url}"
-  }
-}
-
 data "template_file" "jenkins_slave_cloud_init_part_1" {
   template = "${file("scripts/slave-cloud-config.yml.tpl")}"
-
-  vars {
-    slave_service            = "${data.template_file.jenkins_slave_service.rendered}"
-    monitor_lifecycle_script = "${data.template_file.jenkins_slave_monitor_lifecycle_script.rendered}"
-    aws_region               = "${var.region}"
-  }
-}
-
-data "template_file" "jenkins_slave_cloud_init_part_2" {
-  template = "${file("scripts/slave-setup.sh.tpl")}"
-
-  vars {
-    swarm_plugin_version = "${var.swarm_plugin_version}"
-  }
 }
 
 data "template_cloudinit_config" "jenkins_slave_cloud_init" {
@@ -90,7 +57,7 @@ data "template_cloudinit_config" "jenkins_slave_cloud_init" {
 
   part {
     content_type = "text/x-shellscript"
-    content      = "${data.template_file.jenkins_slave_cloud_init_part_2.rendered}"
+    content      = "${file("scripts/slave-setup.sh")}"
   }
 }
 
@@ -108,7 +75,8 @@ resource "aws_launch_template" "jenkins_slave_launch_template" {
   tag_specifications {
     resource_type = "instance"
     tags          = {
-      Name = "jenkins_slave"
+      Name               = "jenkins_slave"
+      SwarmPluginVersion = "${var.swarm_plugin_version}"
     }
   }
 }

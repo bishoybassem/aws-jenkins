@@ -129,6 +129,10 @@ resource "aws_security_group_rule" "jenkins_slave_ingress_allow_ssh" {
 resource "aws_eip" "jenkins_master_ip" {
   vpc        = true
   depends_on = ["aws_internet_gateway.main_gateway"]
+
+  tags {
+    Name = "jenkins_master"
+  }
 }
 
 # Use ip association to avoid changing the ip in case the master instance changes.

@@ -4,17 +4,11 @@ write_files:
 - path: /etc/systemd/system/jenkins-slave.service
   permissions: '0644'
   encoding: b64
-  content: ${base64encode(slave_service)}
+  content: ${base64encode(file("scripts/slave-jenkins.service"))}
 - path: /opt/swarm-client-logging.properties
   permissions: '0644'
   encoding: b64
   content: ${base64encode(file("scripts/slave-logging.properties"))}
-- path: /root/.aws/config
-  permissions: '0644'
-  content: |
-    [default]
-    region = ${aws_region}
-    credential_source = Ec2InstanceMetadata
 - path: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
   permissions: '0644'
   encoding: b64
@@ -22,7 +16,7 @@ write_files:
 - path: /usr/local/bin/monitor-lifecycle
   permissions: '0755'
   encoding: b64
-  content: ${base64encode(monitor_lifecycle_script)}
+  content: ${base64encode(file("scripts/slave-monitor-lifecycle.sh"))}
 
 hostname: ci-slave
 
