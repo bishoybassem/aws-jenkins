@@ -1,5 +1,5 @@
 variable "region" {
-  description = "Name of an existing EC2 key pair"
+  description = "Name of the AWS region to use"
   default     = "eu-central-1"
 }
 

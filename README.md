@@ -12,12 +12,21 @@ The setup features the following:
 (due to free tier limitations, but ideally it would be a different machine).
 * The bootstrapping of the master and the slaves is performed at the startup of the machines with cloud-init.
 * A reverse-proxy (Nginx) runs on master and enforces HTTPS communication (self-signed ssl certificate). 
-* Terraform generates a secure random password for the admin account, and only passes its hash to the master's init scripts. This way, the password is kept safe and does not leave the place where Terraform store's its state.
-* Using the [Swarm plugin](https://wiki.jenkins.io/display/JENKINS/Swarm+Plugin), the slaves are able to join the master and manage their own configuration, thus simplifying scaling up/down the slaves.
+* Terraform generates a secure random password for the admin account, and only passes its hash to the master's init scripts. 
+This way, the password is kept safe and does not leave the place where Terraform store's its state.
+* An Auto Scaling group that manages and scales the slaves.
+* Using the [Swarm plugin](https://wiki.jenkins.io/display/JENKINS/Swarm+Plugin), the slaves are able to join the master and manage their own configuration, 
+thus simplifying scaling up/down the slaves.
 * CloudWatch alarms that automatically:
   * Recover the master machine in case of system failures.
   * Reboot the master in case the jenkins service is down/not responding (metrics collected by CloudWatch agent using StatsD protocol).
-
+  * Scale up the slaves in case there are builds waiting in the build queue (2 builds waiting for at least 5 minutes).
+  * Scale down the slaves in case the queue is empty for a while (at least 10 minutes).
+* A termination lifecycle hook is in place to properly drain the slave before terminating it. Basically, the slave monitors its lifecycle state, 
+if it's terminating (`Terminating:Wait`), then it marks itself as offline in order not to accept new builds. Moreover, if it's already running a build, 
+it will keep extending the termination timeout period by recording a heartbeat, otherwise, it will complete the lifecycle action, which resumes the termination process. 
+* CloudWatch Logs stores the logs from master and slaves (collected by CloudWatch agent).
+  
 ## Steps
 1. Install Terraform (used version 0.11.11) and check that  `~/.aws/credentials` is present and contains the access keys of your IAM user ([guide here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)). 
 
@@ -50,7 +59,19 @@ The setup features the following:
    ```bash
    terraform destroy
    ```
-   
+
+## Input Variables
+Terraform can be executed with the following variables:
+
+| Name                 | Default      | Description
+| -------------------- | ------------ | -----------
+| region               | eu-central-1 | Name of the AWS region to use.
+| key_pair_name        | aws          | Name of an EC2 key pair in the specified region.
+| jenkins_version      | 2.150        | Jenkins version to use (major.minor only!).
+| swarm_plugin_version | 3.15         | Swarm plugin version to use.
+| slave_count          | 1            | Minimum number of slaves to have.
+| slave_max_count      | 3            | Maximum number of slaves possible.
+
 ## Running locally with Docker
 For testing/demo purposes, you can run the same setup locally with Docker (used version 18.09.0-ce) and Docker Compose (used version 1.23.1) as follows:
 ```bash

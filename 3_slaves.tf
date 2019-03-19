@@ -1,9 +1,11 @@
 variable "slave_count" {
-  default = 1
+  default     = 1
+  description = "Minimum number of slaves to have"
 }
 
 variable "slave_max_count" {
-  default = 3
+  default     = 3
+  description = "Maximum number of slaves possible"
 }
 
 resource "aws_iam_role" "jenkins_slave_iam_role" {
