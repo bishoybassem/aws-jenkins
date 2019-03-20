@@ -12,6 +12,9 @@ data "aws_caller_identity" "current" {}
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
+  tags                 = {
+    Name = "main"
+  }
 }
 
 resource "aws_internet_gateway" "main_gateway" {
@@ -21,6 +24,9 @@ resource "aws_internet_gateway" "main_gateway" {
 resource "aws_subnet" "main_public" {
   vpc_id     = "${aws_vpc.main.id}"
   cidr_block = "10.0.1.0/25"
+  tags       = {
+    Name = "main_public"
+  }
 }
 
 resource "aws_route_table" "main_public_route_table" {
@@ -37,45 +43,86 @@ resource "aws_route_table_association" "main_public_route_table_association" {
   route_table_id = "${aws_route_table.main_public_route_table.id}"
 }
 
-resource "aws_subnet" "main_private" {
-  vpc_id            = "${aws_vpc.main.id}"
-  cidr_block        = "10.0.1.128/25"
-  availability_zone = "${aws_subnet.main_public.availability_zone}"
-}
+resource "aws_network_acl" "main_public_acl" {
+  vpc_id     = "${aws_vpc.main.id}"
+  subnet_ids = ["${aws_subnet.main_public.id}"]
 
-resource "aws_route_table" "main_private_route_table" {
-  vpc_id = "${aws_vpc.main.id}"
-
-  # Route the traffic to the internet through the master node, i.e. the master node acts as a NAT server.
-  route {
+  ingress {
+    rule_no    = 110
+    action     = "allow"
+    protocol   = "tcp"
     cidr_block = "0.0.0.0/0"
-    instance_id = "${aws_instance.jenkins_master.id}"
+    from_port  = 80
+    to_port    = 80
   }
-}
 
-resource "aws_route_table_association" "main_private_route_table_association" {
-  subnet_id      = "${aws_subnet.main_private.id}"
-  route_table_id = "${aws_route_table.main_private_route_table.id}"
-}
+  ingress {
+    rule_no    = 120
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "${aws_subnet.main_private.cidr_block}"
+    from_port  = 8081
+    to_port    = 8082
+  }
 
-resource "aws_security_group" "jenkins_slave" {
-  name        = "jenkins_slave"
-  description = "Allow inbound traffic over port 80, 443 and 22"
-  vpc_id      = "${aws_vpc.main.id}"
-}
+  ingress {
+    rule_no    = 130
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 443
+    to_port    = 443
+  }
 
-resource "aws_security_group_rule" "jenkins_slave_egress_allow_all" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = "${aws_security_group.jenkins_slave.id}"
+  ingress {
+    rule_no    = 140
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 22
+    to_port    = 22
+  }
+
+  ingress {
+    rule_no    = 150
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 32768
+    to_port    = 60999
+  }
+
+  egress {
+    rule_no    = 160
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 80
+    to_port    = 80
+  }
+
+  egress {
+    rule_no    = 170
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 443
+    to_port    = 443
+  }
+
+  egress {
+    rule_no    = 180
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 1024
+    to_port    = 65535
+  }
 }
 
 resource "aws_security_group" "jenkins_master" {
   name        = "jenkins_master"
-  description = "Allow inbound traffic over port 80, 443 and 22"
+  description = "Allow inbound traffic [ports: 80, 8081, 8082, 443, 22] and all outbound traffic"
   vpc_id      = "${aws_vpc.main.id}"
 
   ingress {
@@ -116,6 +163,95 @@ resource "aws_security_group" "jenkins_master" {
   }
 }
 
+resource "aws_subnet" "main_private" {
+  vpc_id            = "${aws_vpc.main.id}"
+  cidr_block        = "10.0.1.128/25"
+  availability_zone = "${aws_subnet.main_public.availability_zone}"
+  tags              = {
+    Name = "main_private"
+  }
+}
+
+resource "aws_route_table" "main_private_route_table" {
+  vpc_id = "${aws_vpc.main.id}"
+
+  # Route the traffic to the internet through the master node, i.e. the master node acts as a NAT server.
+  route {
+    cidr_block = "0.0.0.0/0"
+    instance_id = "${aws_instance.jenkins_master.id}"
+  }
+}
+
+resource "aws_route_table_association" "main_private_route_table_association" {
+  subnet_id      = "${aws_subnet.main_private.id}"
+  route_table_id = "${aws_route_table.main_private_route_table.id}"
+}
+
+resource "aws_network_acl" "main_private_acl" {
+  vpc_id     = "${aws_vpc.main.id}"
+  subnet_ids = ["${aws_subnet.main_private.id}"]
+
+  ingress {
+    rule_no    = 210
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "${aws_subnet.main_public.cidr_block}"
+    from_port  = 22
+    to_port    = 22
+  }
+
+  ingress {
+    rule_no    = 220
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 32768
+    to_port    = 60999
+  }
+
+  egress {
+    rule_no    = 230
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 80
+    to_port    = 80
+  }
+
+  egress {
+    rule_no    = 240
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 443
+    to_port    = 443
+  }
+
+  egress {
+    rule_no    = 250
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "${aws_subnet.main_public.cidr_block}"
+    from_port  = 8081
+    to_port    = 8082
+  }
+
+  egress {
+    rule_no    = 260
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "0.0.0.0/0"
+    from_port  = 32768
+    to_port    = 60999
+  }
+}
+
+resource "aws_security_group" "jenkins_slave" {
+  name        = "jenkins_slave"
+  description = "Allow inbound traffic [ports: 22] and all outbound traffic"
+  vpc_id      = "${aws_vpc.main.id}"
+}
+
 # Only allow ssh connections from the master node, i.e. the master node acts as a bastion host.
 resource "aws_security_group_rule" "jenkins_slave_ingress_allow_ssh" {
   type                     = "ingress"
@@ -124,6 +260,15 @@ resource "aws_security_group_rule" "jenkins_slave_ingress_allow_ssh" {
   protocol                 = "tcp"
   source_security_group_id = "${aws_security_group.jenkins_master.id}"
   security_group_id        = "${aws_security_group.jenkins_slave.id}"
+}
+
+resource "aws_security_group_rule" "jenkins_slave_egress_allow_all" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = "${aws_security_group.jenkins_slave.id}"
 }
 
 resource "aws_eip" "jenkins_master_ip" {

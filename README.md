@@ -6,8 +6,10 @@ This project sets up a highly available, scalable, and secure Jenkins cluster on
 ## Features
 The setup features the following:
 * A VPC with an IPv4 block (10.0.0.0/16).
-* A public subnet for the internet facing machines (Jenkins master) and a private one (for the slave machines).
-* Connections (e.g. SSH) to the slave machines can be only initiated from the master machine, i.e. the master acts as a bastion host.
+* A public subnet for the internet facing machines (Jenkins master) and a private one (for the slave machines). 
+Moreover, the traffic in and out is controlled by network ACLs.
+* Connections (e.g. SSH) to the slave machines can be only initiated from the master machine, i.e. the master acts as a bastion host. 
+This is enforced both by security groups and network ACLs.
 * The private subnet can connect to the internet through a NAT server, which is the master machine in this setup 
 (due to free tier limitations, but ideally it would be a different machine).
 * The bootstrapping of the master and the slaves is performed at the startup of the machines with cloud-init.
@@ -75,7 +77,7 @@ Terraform can be executed with the following variables:
 ## Running locally with Docker
 For testing/demo purposes, you can run the same setup locally with Docker (used version 18.09.0-ce) and Docker Compose (used version 1.23.1) as follows:
 ```bash
-   cd ./playground
-   docker-compose up --scale slave=3
+cd ./playground
+docker-compose up --scale slave=3
 ```
 After that, open `https://localhost` in your browser, and login as `admin` with password `admin123`.
