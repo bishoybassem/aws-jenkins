@@ -90,6 +90,7 @@ resource "aws_autoscaling_group" "jenkins_slaves_autoscaling_group" {
   vpc_zone_identifier  = ["${aws_subnet.main_private.id}"]
   health_check_type    = "EC2"
   termination_policies = ["OldestLaunchTemplate", "OldestInstance"]
+  depends_on           = ["aws_instance.jenkins_master"]
 
   launch_template {
     id      = "${aws_launch_template.jenkins_slave_launch_template.id}"

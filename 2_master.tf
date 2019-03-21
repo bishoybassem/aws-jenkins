@@ -44,6 +44,21 @@ resource "aws_iam_role" "jenkins_master_iam_role" {
   assume_role_policy = "${data.aws_iam_policy_document.ec2_assume_role_policy.json}"
 }
 
+data "aws_iam_policy_document" "jenkins_master_iam_policy_document" {
+  statement {
+    actions   = [
+      "ec2:DescribeAddresses"
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "jenkins_master_iam_role_policy" {
+  name   = "jenkins_master_iam_role_policy"
+  role   = "${aws_iam_role.jenkins_master_iam_role.id}"
+  policy = "${data.aws_iam_policy_document.jenkins_master_iam_policy_document.json}"
+}
+
 resource "aws_iam_role_policy_attachment" "jenkins_master_iam_role_policy_attachment" {
   role       = "${aws_iam_role.jenkins_master_iam_role.name}"
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
@@ -108,6 +123,7 @@ resource "aws_instance" "jenkins_master" {
   // Disable source_dest_check as the master node acts as NAT server for the slaves to access the internet.
   source_dest_check           = false
   iam_instance_profile        = "${aws_iam_instance_profile.jenkins_master_iam_role_instance_profile.name}"
+  depends_on                  = ["aws_eip.jenkins_master_ip"]
   tags                        = {
     Name               = "jenkins_master"
     JenkinsVersion     = "${var.jenkins_version}"

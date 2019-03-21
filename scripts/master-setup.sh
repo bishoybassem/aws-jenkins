@@ -1,14 +1,17 @@
 #!/bin/bash -e
 
+region=$(ec2metadata --availability-zone | sed 's/.$//')
+
 # Configure AWS CLI to fetch credentials from the instance's metadata.
 mkdir ~/.aws
 tee ~/.aws/config <<EOF
 [default]
-region = $(ec2metadata --availability-zone | sed 's/.$//')
+region = ${region}
 credential_source = Ec2InstanceMetadata
 EOF
 
-public_hostname=$(ec2metadata --public-hostname)
+public_ip=$(aws ec2 describe-addresses --filter 'Name=tag:Name,Values=jenkins_master' --query 'Addresses[*].PublicIp' --output text)
+public_hostname="ec2-$(echo ${public_ip} | sed 's/\./-/g').$region.compute.amazonaws.com"
 instance_id=$(ec2metadata --instance-id)
 
 # Query Jenkins and Swarm plugin versions from the instance's tags.
