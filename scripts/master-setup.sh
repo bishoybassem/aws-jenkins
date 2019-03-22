@@ -16,6 +16,7 @@ instance_id=$(ec2metadata --instance-id)
 
 # Query Jenkins and Swarm plugin versions from the instance's tags.
 jenkins_version=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$instance_id" 'Name=tag:JenkinsVersion,Values=*' --query 'Tags[*].Value' --output text)
+jenkins_version_major_minor=$(echo ${jenkins_version} | sed -r 's/([^\.]+\.[^\.]+).*/\1/')
 swarm_plugin_version=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$instance_id" 'Name=tag:SwarmPluginVersion,Values=*' --query 'Tags[*].Value' --output text)
 
 # Configure Jenkins to skip the initial setup wizard.
@@ -24,7 +25,7 @@ sed -i 's/^JAVA_ARGS="/JAVA_ARGS="-Djenkins.install.runSetupWizard=false /' /etc
 # Download plugins.
 mkdir /var/lib/jenkins/plugins
 cd /var/lib/jenkins/plugins
-wget https://updates.jenkins.io/${jenkins_version}/latest/matrix-auth.hpi
+wget https://updates.jenkins.io/${jenkins_version_major_minor}/latest/matrix-auth.hpi
 wget https://updates.jenkins.io/download/plugins/swarm/${swarm_plugin_version}/swarm.hpi
 chown -R jenkins:jenkins /var/lib/jenkins
 

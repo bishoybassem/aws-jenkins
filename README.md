@@ -69,7 +69,7 @@ Terraform can be executed with the following variables:
 | -------------------- | ------------ | -----------
 | region               | eu-central-1 | Name of the AWS region to use.
 | key_pair_name        | aws          | Name of an EC2 key pair in the specified region.
-| jenkins_version      | 2.150        | Jenkins version to use (major.minor only!).
+| jenkins_version      | 2.164.1      | Jenkins version to use.
 | swarm_plugin_version | 3.15         | Swarm plugin version to use.
 | slave_count          | 1            | Minimum number of slaves to have.
 | slave_max_count      | 3            | Maximum number of slaves possible.

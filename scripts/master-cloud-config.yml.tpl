@@ -52,7 +52,7 @@ apt_upgrade: true
 
 packages:
 - openjdk-8-jre
-- [jenkins, ${jenkins_version}.*]
+- [jenkins, ${jenkins_version}]
 - nginx
 
 power_state:

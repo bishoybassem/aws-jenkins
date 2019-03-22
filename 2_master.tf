@@ -4,8 +4,8 @@ variable "key_pair_name" {
 }
 
 variable "jenkins_version" {
-  description = "Jenkins version to use (major.minor only!)"
-  default     = "2.150"
+  description = "Jenkins version to use"
+  default     = "2.164.1"
 }
 
 variable "swarm_plugin_version" {
