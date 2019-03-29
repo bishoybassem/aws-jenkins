@@ -104,8 +104,8 @@ resource "aws_autoscaling_group" "jenkins_slaves_autoscaling_group" {
   }
 }
 
-resource "aws_autoscaling_policy" "jenkins_slaves_scale_up_policy" {
-  name                      = "jenkins_slaves_scale_up_policy"
+resource "aws_autoscaling_policy" "jenkins_slaves_scale_out_policy" {
+  name                      = "jenkins_slaves_scale_out_policy"
   policy_type               = "StepScaling"
   adjustment_type           = "ChangeInCapacity"
   autoscaling_group_name    = "${aws_autoscaling_group.jenkins_slaves_autoscaling_group.name}"
@@ -119,7 +119,7 @@ resource "aws_autoscaling_policy" "jenkins_slaves_scale_up_policy" {
 
 resource "aws_cloudwatch_metric_alarm" "jenkins_long_waiting_queue" {
   alarm_name          = "jenkins_long_waiting_queue"
-  alarm_description   = "Trigger scaling up policy if the queue has more than 2 builds waiting for at least 5 minutes"
+  alarm_description   = "Trigger scaling out policy if the queue has more than 2 builds waiting for at least 5 minutes"
   namespace           = "CWAgent"
   metric_name         = "jenkins_queue"
   period              = 60
@@ -127,7 +127,7 @@ resource "aws_cloudwatch_metric_alarm" "jenkins_long_waiting_queue" {
   comparison_operator = "GreaterThanOrEqualToThreshold"
   threshold           = 2
   evaluation_periods  = 5
-  alarm_actions       = ["${aws_autoscaling_policy.jenkins_slaves_scale_up_policy.arn}"]
+  alarm_actions       = ["${aws_autoscaling_policy.jenkins_slaves_scale_out_policy.arn}"]
 
   dimensions {
     InstanceId  = "${aws_instance.jenkins_master.id}"
@@ -135,8 +135,8 @@ resource "aws_cloudwatch_metric_alarm" "jenkins_long_waiting_queue" {
   }
 }
 
-resource "aws_autoscaling_policy" "jenkins_slaves_scale_down_policy" {
-  name                      = "jenkins_slaves_scale_down_policy"
+resource "aws_autoscaling_policy" "jenkins_slaves_scale_in_policy" {
+  name                      = "jenkins_slaves_scale_in_policy"
   policy_type               = "SimpleScaling"
   adjustment_type           = "ChangeInCapacity"
   scaling_adjustment        = -1
@@ -146,7 +146,7 @@ resource "aws_autoscaling_policy" "jenkins_slaves_scale_down_policy" {
 
 resource "aws_cloudwatch_metric_alarm" "jenkins_empty_queue" {
   alarm_name          = "jenkins_empty_queue"
-  alarm_description   = "Trigger scaling down policy if the queue is empty for at least 10 minutes"
+  alarm_description   = "Trigger scaling in policy if the queue is empty for at least 10 minutes"
   namespace           = "CWAgent"
   metric_name         = "jenkins_queue"
   period              = 60
@@ -154,7 +154,7 @@ resource "aws_cloudwatch_metric_alarm" "jenkins_empty_queue" {
   comparison_operator = "LessThanThreshold"
   threshold           = 1
   evaluation_periods  = 10
-  alarm_actions       = ["${aws_autoscaling_policy.jenkins_slaves_scale_down_policy.arn}"]
+  alarm_actions       = ["${aws_autoscaling_policy.jenkins_slaves_scale_in_policy.arn}"]
 
   dimensions {
     InstanceId  = "${aws_instance.jenkins_master.id}"

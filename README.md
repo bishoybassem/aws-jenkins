@@ -18,36 +18,40 @@ This is enforced both by security groups and network ACLs.
 This way, the password is kept safe and does not leave the place where Terraform store's its state.
 * An Auto Scaling group that manages and scales the slaves.
 * Using the [Swarm plugin](https://wiki.jenkins.io/display/JENKINS/Swarm+Plugin), the slaves are able to join the master and manage their own configuration, 
-thus simplifying scaling up/down the slaves.
+thus simplifying scaling out/in the slaves.
 * CloudWatch alarms that automatically:
   * Recover the master machine in case of system failures.
   * Reboot the master in case the jenkins service is down/not responding (metrics collected by CloudWatch agent using StatsD protocol).
-  * Scale up the slaves in case there are builds waiting in the build queue (2 builds waiting for at least 5 minutes).
-  * Scale down the slaves in case the queue is empty for a while (at least 10 minutes).
+  * Scale out the slaves in case there are builds waiting in the build queue (2 builds waiting for at least 5 minutes).
+  * Scale in the slaves in case the queue is empty for a while (at least 10 minutes).
 * A termination lifecycle hook is in place to properly drain the slave before terminating it. Basically, the slave monitors its lifecycle state, 
 if it's terminating (`Terminating:Wait`), then it marks itself as offline in order not to accept new builds. Moreover, if it's already running a build, 
 it will keep extending the termination timeout period by recording a heartbeat, otherwise, it will complete the lifecycle action, which resumes the termination process. 
 * CloudWatch Logs stores the logs from master and slaves (collected by CloudWatch agent).
   
-## Steps
-1. Install Terraform (used version 0.11.11) and check that  `~/.aws/credentials` is present and contains the access keys of your IAM user ([guide here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)). 
+## Requirements
+The following needs to be present/installed:
+* Terraform (used version 0.11.11, [guide](https://www.terraform.io/downloads.html))
+* `~/.aws/credentials` file containing your IAM user's access keys. ([guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html))
+* EC2 key pair for SSH access. ([guide](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html))
 
-2. Run Terraform as follows:
+## Steps
+1. Run Terraform:
    ```bash
    terraform apply -var key_pair_name=aws -var slave_count=3
    ```
-   Where `key_pair_name` is the name of a key pair that you created earlier ([guide here](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html)), and `slave_count` is the desired number of slaves to launch.
+   Where `key_pair_name` is the name of the key pair you created earlier, and `slave_count` is the desired number of slaves to launch.
    
-3. Check the output, which would look like the following:
+2. Check the output, which would look like:
    ```
    Outputs:
    
    admin_pass = ****************
    jenkins_master_public_dns = ec2-35-157-225-150.eu-central-1.compute.amazonaws.com
    ```
-4. Open the shown public dns in your browser, and login as `admin` with the output password.
+3. Open the shown public dns in your browser, and login as `admin` with the output password.
 
-5. To SSH into one of the slaves, SSH first into the master machine and then into the slave, or shortly as:
+4. To SSH into one of the slaves, SSH first into the master machine and then into the slave, or shortly as:
    ```bash
    ssh -J admin@ec2-35-157-225-150.eu-central-1.compute.amazonaws.com admin@10.0.1.189
    ```
@@ -56,8 +60,7 @@ it will keep extending the termination timeout period by recording a heartbeat, 
    aws ec2 describe-instances --filter 'Name=tag:aws:autoscaling:groupName,Values=jenkins_slaves' \
      --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,State.Name]' --output text
    ```
-
-6. Finally, to delete and free up all used resources:
+5. Finally, to delete and free up all used resources:
    ```bash
    terraform destroy
    ```
