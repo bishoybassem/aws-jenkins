@@ -6,4 +6,5 @@ RUN apt-get update \
 
 RUN wget -O swarm-client.jar https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/3.15/swarm-client-3.15.jar
 
-ENTRYPOINT java -jar swarm-client.jar -master http://nginx:8082 -tunnel master:8081
+CMD [ "-master", "http://nginx:8082", "-tunnel", "master:8081" ]
+ENTRYPOINT [ "java", "-jar", "swarm-client.jar" ]
