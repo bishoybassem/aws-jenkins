@@ -3,8 +3,11 @@
 
 This project sets up a highly available, scalable, and secure Jenkins cluster on AWS using Terraform. 
 
-## Features
-The setup features the following:
+## Implementation
+The setup's architecture is shown in the bellow diagram, with the following features:
+
+<img align="right" width="190" src="diagram.svg"/>
+
 * A VPC with an IPv4 block (10.0.0.0/16).
 * A public subnet for the internet facing machines (Jenkins master) and a private one (for the slave machines). 
 Moreover, the traffic in and out is controlled by network ACLs.
@@ -36,22 +39,23 @@ The following needs to be present/installed:
 * EC2 key pair for SSH access. ([guide](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html))
 
 ## Steps
-1. Run Terraform:
+1. Clone the repository, and navigate to the clone directory.
+2. Run Terraform:
    ```bash
    terraform apply -var key_pair_name=aws -var slave_count=3
    ```
    Where `key_pair_name` is the name of the key pair you created earlier, and `slave_count` is the desired number of slaves to launch.
    
-2. Check the output, which would look like:
+3. When finished, check the output, which would look like:
    ```
    Outputs:
    
    admin_pass = ****************
    jenkins_master_public_dns = ec2-35-157-225-150.eu-central-1.compute.amazonaws.com
    ```
-3. Open the shown public dns in your browser, and login as `admin` with the output password.
+4. Open the shown public dns in your browser, and login as `admin` with the output password.
 
-4. To SSH into one of the slaves, SSH first into the master machine and then into the slave, or shortly as:
+5. To SSH into one of the slaves, SSH first into the master machine and then into the slave, or shortly as:
    ```bash
    ssh -J admin@ec2-35-157-225-150.eu-central-1.compute.amazonaws.com admin@10.0.1.189
    ```
@@ -60,12 +64,12 @@ The following needs to be present/installed:
    aws ec2 describe-instances --filter 'Name=tag:aws:autoscaling:groupName,Values=jenkins_slaves' \
      --query 'Reservations[*].Instances[*].[InstanceId,PrivateIpAddress,State.Name]' --output text
    ```
-5. Finally, to delete and free up all used resources:
+6. Finally, to delete and free up all used resources:
    ```bash
    terraform destroy
    ```
 
-## Input Variables
+## Parameters
 Terraform can be executed with the following variables:
 
 | Name                 | Default      | Description
@@ -77,7 +81,7 @@ Terraform can be executed with the following variables:
 | slave_count          | 1            | Minimum number of slaves to have.
 | slave_max_count      | 3            | Maximum number of slaves possible.
 
-## Running locally with Docker
+## Testing locally
 For testing/demo purposes, you can run the same setup locally with Docker (used version 18.09.0-ce) and Docker Compose (used version 1.23.1) as follows:
 ```bash
 cd ./playground
