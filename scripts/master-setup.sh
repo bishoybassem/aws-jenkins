@@ -26,6 +26,7 @@ sed -i 's/^JAVA_ARGS="/JAVA_ARGS="-Djenkins.install.runSetupWizard=false /' /etc
 mkdir /var/lib/jenkins/plugins
 cd /var/lib/jenkins/plugins
 wget https://updates.jenkins.io/${jenkins_version_major_minor}/latest/matrix-auth.hpi
+wget https://updates.jenkins.io/${jenkins_version_major_minor}/latest/authorize-project.hpi
 wget https://updates.jenkins.io/download/plugins/swarm/${swarm_plugin_version}/swarm.hpi
 chown -R jenkins:jenkins /var/lib/jenkins
 

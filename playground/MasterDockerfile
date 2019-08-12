@@ -3,7 +3,7 @@ FROM jenkins/jenkins:lts-slim
 ENV JAVA_OPTS "-Djenkins.install.runSetupWizard=false"
 ENV JENKINS_SLAVE_AGENT_PORT 8081
 
-RUN /usr/local/bin/install-plugins.sh matrix-auth swarm:3.15
+RUN /usr/local/bin/install-plugins.sh matrix-auth authorize-project swarm:3.17
 
 COPY --chown=jenkins configure-security.groovy /usr/share/jenkins/ref/init.groovy.d/configure-security.groovy
 

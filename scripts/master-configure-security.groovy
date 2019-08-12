@@ -2,16 +2,19 @@ import jenkins.model.Jenkins
 import hudson.model.Computer
 import hudson.model.Job
 import hudson.security.HudsonPrivateSecurityRealm
-import hudson.security.GlobalMatrixAuthorizationStrategy
+import hudson.security.ProjectMatrixAuthorizationStrategy
 import hudson.security.csrf.DefaultCrumbIssuer
 import jenkins.security.s2m.AdminWhitelistRule
 import java.util.regex.Matcher
 import jenkins.model.JenkinsLocationConfiguration
+import jenkins.security.QueueItemAuthenticatorConfiguration
+import org.jenkinsci.plugins.authorizeproject.GlobalQueueItemAuthenticator
+import org.jenkinsci.plugins.authorizeproject.strategy.TriggeringUsersAuthorizationStrategy
 
 def instance = Jenkins.getInstance()
 
 if (instance.getSecurityRealm() == hudson.security.SecurityRealm.NO_AUTHENTICATION) {
-    println '--> creating admin account'
+    println '--> creating common accounts'
     def securityRealm = new HudsonPrivateSecurityRealm(false)
     def jenkinsHome = System.getenv('JENKINS_HOME')
     securityRealm.createAccount('admin', 'ignore_as_it_will_be_modified_below')
@@ -31,8 +34,8 @@ if (instance.getSecurityRealm() == hudson.security.SecurityRealm.NO_AUTHENTICATI
 }
 
 if (instance.getAuthorizationStrategy() == hudson.security.AuthorizationStrategy.UNSECURED) {
-    println '--> configuring permissions for admin account'
-    def authStrategy = new GlobalMatrixAuthorizationStrategy()
+    println '--> configuring permissions for common accounts'
+    def authStrategy = new ProjectMatrixAuthorizationStrategy()
     authStrategy.add(Jenkins.ADMINISTER, 'admin')
     authStrategy.add(Jenkins.READ, 'slave')
     authStrategy.add(Computer.CONFIGURE, 'slave')
@@ -43,6 +46,10 @@ if (instance.getAuthorizationStrategy() == hudson.security.AuthorizationStrategy
     authStrategy.add(Jenkins.READ, 'monitoring')
     authStrategy.add(Job.DISCOVER, 'monitoring')
     instance.setAuthorizationStrategy(authStrategy)
+
+    println '--> configuring access control for builds'
+    GlobalQueueItemAuthenticator auth = new GlobalQueueItemAuthenticator(new TriggeringUsersAuthorizationStrategy())
+    QueueItemAuthenticatorConfiguration.get().authenticators.add(auth)
 }
 
 if (!instance.getCrumbIssuer()) {
@@ -51,11 +58,8 @@ if (!instance.getCrumbIssuer()) {
 }
 
 println '--> enabling Agent → Master Access Control'
-Jenkins.instance.getInjector().getInstance(AdminWhitelistRule.class)
+instance.getInjector().getInstance(AdminWhitelistRule.class)
         .setMasterKillSwitch(false)
-
-println '--> disabling CLI over Remoting'
-Jenkins.instance.getDescriptor('jenkins.CLI').get().setEnabled(false)
 
 println '--> configuring url'
 def jlc = JenkinsLocationConfiguration.get()
@@ -63,4 +67,4 @@ def publicHostName = new URL('http://169.254.169.254/latest/meta-data/public-hos
 jlc.setUrl("https://$publicHostName")
 
 println "--> setting agent port for JNLP"
-Jenkins.instance.setSlaveAgentPort(8081)
+instance.setSlaveAgentPort(8081)

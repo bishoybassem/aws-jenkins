@@ -1,10 +1,13 @@
 import jenkins.model.Jenkins
 import hudson.model.Computer
 import hudson.security.HudsonPrivateSecurityRealm
-import hudson.security.GlobalMatrixAuthorizationStrategy
+import hudson.security.ProjectMatrixAuthorizationStrategy
 import hudson.security.csrf.DefaultCrumbIssuer
 import jenkins.security.s2m.AdminWhitelistRule
 import jenkins.model.JenkinsLocationConfiguration
+import jenkins.security.QueueItemAuthenticatorConfiguration
+import org.jenkinsci.plugins.authorizeproject.GlobalQueueItemAuthenticator
+import org.jenkinsci.plugins.authorizeproject.strategy.TriggeringUsersAuthorizationStrategy
 
 def instance = Jenkins.getInstance()
 
@@ -19,7 +22,7 @@ if (instance.getSecurityRealm() == hudson.security.SecurityRealm.NO_AUTHENTICATI
 
 if (instance.getAuthorizationStrategy() == hudson.security.AuthorizationStrategy.UNSECURED) {
     println '--> configuring permissions for admin and slave accounts'
-    def authStrategy = new GlobalMatrixAuthorizationStrategy()
+    def authStrategy = new ProjectMatrixAuthorizationStrategy()
     authStrategy.add(Jenkins.ADMINISTER, 'admin')
     authStrategy.add(Jenkins.READ , 'slave')
     authStrategy.add(Computer.CONFIGURE, 'slave')
@@ -28,6 +31,10 @@ if (instance.getAuthorizationStrategy() == hudson.security.AuthorizationStrategy
     authStrategy.add(Computer.DELETE, 'slave')
     authStrategy.add(Computer.DISCONNECT, 'slave')
     instance.setAuthorizationStrategy(authStrategy)
+
+    println '--> configuring access control for builds'
+    GlobalQueueItemAuthenticator auth = new GlobalQueueItemAuthenticator(new TriggeringUsersAuthorizationStrategy())
+    QueueItemAuthenticatorConfiguration.get().authenticators.add(auth)
 }
 
 if (!instance.getCrumbIssuer()) {
@@ -36,11 +43,8 @@ if (!instance.getCrumbIssuer()) {
 }
 
 println '--> enabling Agent → Master Access Control'
-Jenkins.instance.getInjector().getInstance(AdminWhitelistRule.class)
+instance.getInjector().getInstance(AdminWhitelistRule.class)
         .setMasterKillSwitch(false)
-
-println '--> disabling CLI over Remoting'
-Jenkins.instance.getDescriptor('jenkins.CLI').get().setEnabled(false)
 
 println '--> configuring url'
 JenkinsLocationConfiguration.get().setUrl("https://localhost")

@@ -5,12 +5,12 @@ variable "key_pair_name" {
 
 variable "jenkins_version" {
   description = "Jenkins version to use"
-  default     = "2.164.1"
+  default     = "2.176.2"
 }
 
 variable "swarm_plugin_version" {
   description = "Swarm plugin version to use"
-  default     = "3.15"
+  default     = "3.17"
 }
 
 resource "random_string" "admin_pass" {
@@ -41,13 +41,13 @@ data "aws_iam_policy_document" "ec2_assume_role_policy" {
 
 resource "aws_iam_role" "jenkins_master_iam_role" {
   name               = "jenkins_master_iam_role"
-  assume_role_policy = "${data.aws_iam_policy_document.ec2_assume_role_policy.json}"
+  assume_role_policy = data.aws_iam_policy_document.ec2_assume_role_policy.json
 }
 
 data "aws_iam_policy_document" "jenkins_master_iam_policy_document" {
   statement {
-    actions   = [
-      "ec2:DescribeAddresses"
+    actions = [
+      "ec2:DescribeAddresses",
     ]
     resources = ["*"]
   }
@@ -55,79 +55,80 @@ data "aws_iam_policy_document" "jenkins_master_iam_policy_document" {
 
 resource "aws_iam_role_policy" "jenkins_master_iam_role_policy" {
   name   = "jenkins_master_iam_role_policy"
-  role   = "${aws_iam_role.jenkins_master_iam_role.id}"
-  policy = "${data.aws_iam_policy_document.jenkins_master_iam_policy_document.json}"
+  role   = aws_iam_role.jenkins_master_iam_role.id
+  policy = data.aws_iam_policy_document.jenkins_master_iam_policy_document.json
 }
 
 resource "aws_iam_role_policy_attachment" "jenkins_master_iam_role_policy_attachment" {
-  role       = "${aws_iam_role.jenkins_master_iam_role.name}"
+  role       = aws_iam_role.jenkins_master_iam_role.name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
 resource "aws_iam_instance_profile" "jenkins_master_iam_role_instance_profile" {
-  name = "${aws_iam_role.jenkins_master_iam_role.name}"
-  role = "${aws_iam_role.jenkins_master_iam_role.name}"
+  name = aws_iam_role.jenkins_master_iam_role.name
+  role = aws_iam_role.jenkins_master_iam_role.name
 }
 
 data "aws_ami" "debian_stretch_latest_ami" {
-  most_recent      = true
-  owners           = ["379101102735"]
+  most_recent = true
+  owners      = ["379101102735"]
 
   filter {
-    name = "name"
+    name   = "name"
     values = ["debian-stretch-hvm-x86_64-gp2-*"]
   }
 }
 
 data "template_file" "jenkins_master_nginx_config" {
-  template = "${file("scripts/master-nginx.conf.tpl")}"
+  template = file("scripts/master-nginx.conf.tpl")
 
-  vars {
-    auth_header = "${base64encode("slave:${random_string.slave_pass.result}")}"
+  vars = {
+    slave_auth_header = base64encode("slave:${random_string.slave_pass.result}")
   }
 }
 
 data "template_file" "jenkins_master_cloud_init_part_1" {
-  template = "${file("scripts/master-cloud-config.yml.tpl")}"
+  template = file("scripts/master-cloud-config.yml.tpl")
 
-  vars {
-    jenkins_version = "${var.jenkins_version}"
+  vars = {
+    jenkins_version = var.jenkins_version
     admin_pass_hash = "admin_salt:${sha256("${random_string.admin_pass.result}{admin_salt}")}"
-    slave_pass      = "${random_string.slave_pass.result}"
-    monitoring_pass = "${random_string.monitoring_pass.result}"
-    nginx_conf      = "${data.template_file.jenkins_master_nginx_config.rendered}"
-    slaves_subnet   = "${aws_subnet.main_private.cidr_block}"
+    slave_pass      = random_string.slave_pass.result
+    monitoring_pass = random_string.monitoring_pass.result
+    nginx_conf      = data.template_file.jenkins_master_nginx_config.rendered
+    slaves_subnet   = aws_subnet.main_private.cidr_block
   }
 }
 
 data "template_cloudinit_config" "jenkins_master_cloud_init" {
   part {
     content_type = "text/cloud-config"
-    content      = "${data.template_file.jenkins_master_cloud_init_part_1.rendered}"
+    content      = data.template_file.jenkins_master_cloud_init_part_1.rendered
   }
 
   part {
     content_type = "text/x-shellscript"
-    content      = "${file("scripts/master-setup.sh")}"
+    content      = file("scripts/master-setup.sh")
   }
 }
 
 resource "aws_instance" "jenkins_master" {
-  ami                         = "${data.aws_ami.debian_stretch_latest_ami.id}"
+  ami                         = data.aws_ami.debian_stretch_latest_ami.id
   instance_type               = "t2.micro"
   associate_public_ip_address = true
-  key_name                    = "${var.key_pair_name}"
-  subnet_id                   = "${aws_subnet.main_public.id}"
-  vpc_security_group_ids      = ["${aws_security_group.jenkins_master.id}"]
-  user_data_base64            = "${data.template_cloudinit_config.jenkins_master_cloud_init.rendered}"
+  key_name                    = var.key_pair_name
+  subnet_id                   = aws_subnet.main_public.id
+  vpc_security_group_ids      = [aws_security_group.jenkins_master.id]
+  user_data_base64            = data.template_cloudinit_config.jenkins_master_cloud_init.rendered
+
   // Disable source_dest_check as the master node acts as NAT server for the slaves to access the internet.
-  source_dest_check           = false
-  iam_instance_profile        = "${aws_iam_instance_profile.jenkins_master_iam_role_instance_profile.name}"
-  depends_on                  = ["aws_eip.jenkins_master_ip"]
-  tags                        = {
+  source_dest_check    = false
+  iam_instance_profile = aws_iam_instance_profile.jenkins_master_iam_role_instance_profile.name
+  depends_on           = [aws_eip.jenkins_master_ip]
+  tags = {
     Name               = "jenkins_master"
-    JenkinsVersion     = "${var.jenkins_version}"
-    SwarmPluginVersion = "${var.swarm_plugin_version}"
+    JenkinsVersion     = var.jenkins_version
+    SwarmPluginVersion = var.swarm_plugin_version
   }
 
   // Wait until the master node starts.
@@ -148,8 +149,8 @@ resource "aws_cloudwatch_metric_alarm" "jenkins_recover_master" {
   evaluation_periods  = 2
   alarm_actions       = ["arn:aws:automate:${var.region}:ec2:recover"]
 
-  dimensions {
-    InstanceId = "${aws_instance.jenkins_master.id}"
+  dimensions = {
+    InstanceId = aws_instance.jenkins_master.id
   }
 }
 
@@ -165,8 +166,8 @@ resource "aws_cloudwatch_metric_alarm" "jenkins_restart_master" {
   evaluation_periods  = 3
   alarm_actions       = ["arn:aws:automate:${var.region}:ec2:reboot"]
 
-  dimensions {
-    InstanceId  = "${aws_instance.jenkins_master.id}"
+  dimensions = {
+    InstanceId  = aws_instance.jenkins_master.id
     metric_type = "gauge"
   }
 }
@@ -182,5 +183,5 @@ output "jenkins_master_public_dns" {
 }
 
 output "admin_pass" {
-  value = "${random_string.admin_pass.result}"
+  value = random_string.admin_pass.result
 }
