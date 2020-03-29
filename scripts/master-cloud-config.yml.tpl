@@ -9,23 +9,11 @@ bootcmd:
 - echo 'exit 101' > /usr/sbin/policy-rc.d
 - chmod +x /usr/sbin/policy-rc.d
 
-# Add the key for Jenkins debian repository.
-- wget -q -O - https://pkg.jenkins.io/debian/jenkins.io.key | apt-key add -
-
 write_files:
-- path: /var/lib/jenkins/.admin_pass_hash
-  permissions: '0400'
-  content: "${admin_pass_hash}"
-- path: /var/lib/jenkins/.slave_pass
-  permissions: '0400'
-  content: "${slave_pass}"
-- path: /var/lib/jenkins/.monitoring_pass
-  permissions: '0400'
-  content: "${monitoring_pass}"
 - path: /etc/nginx/conf.d/jenkins.conf
   permissions: '0640'
   encoding: b64
-  content: ${base64encode(nginx_conf)}
+  content: ${base64encode(file("scripts/master-nginx.conf"))}
 - path: /var/lib/jenkins/init.groovy
   permissions: '0644'
   encoding: b64
@@ -41,19 +29,14 @@ write_files:
 
 hostname: ci-master
 
-apt:
-  sources:
-    jenkins.list:
-      source: "deb http://pkg.jenkins.io/debian-stable binary/"
-      # Key added above from the official url.
-
 apt_update: true
 apt_upgrade: true
 
 packages:
-- openjdk-8-jre
-- [jenkins, ${jenkins_version}]
+- openjdk-11-jdk
 - nginx
+- netcat
+- jq
 
 power_state:
   delay: now

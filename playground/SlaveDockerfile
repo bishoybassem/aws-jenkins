@@ -1,10 +1,10 @@
-FROM openjdk:8-jre-slim
+FROM openjdk:11-jre-slim-buster
 
 RUN apt-get update \
     && apt-get install -y wget \
     && apt-get clean
 
-RUN wget -O swarm-client.jar https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/3.17/swarm-client-3.17.jar
+RUN wget -O swarm-client.jar https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/3.18/swarm-client-3.18.jar
 
-CMD [ "-master", "http://nginx:8082", "-tunnel", "master:8081" ]
+CMD [ "-master", "https://nginx", "-username", "slave", "-password", "slave123", "-disableSslVerification", "-tunnel", "master:8081"]
 ENTRYPOINT [ "java", "-jar", "swarm-client.jar" ]

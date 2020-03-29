@@ -2,14 +2,7 @@
 Description=Jenkins slave service
 
 [Service]
-ExecStart=/bin/bash -ec "java \
-            -Djava.util.logging.config.file=/opt/swarm-client-logging.properties \
-            -jar /opt/swarm-client.jar \
-            -master http://$(aws ec2 describe-addresses --filter 'Name=tag:Name,Values=jenkins_master' --query 'Addresses[*].PrivateIpAddress' --output text):8082 \
-            -name $(ec2metadata --instance-id) \
-            -disableClientsUniqueId \
-            -deleteExistingClients" \
-            -retry 1
+ExecStart=/usr/local/bin/start-slave
 Restart=always
 RestartSec=5s
 

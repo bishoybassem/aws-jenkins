@@ -5,6 +5,10 @@ write_files:
   permissions: '0644'
   encoding: b64
   content: ${base64encode(file("scripts/slave-jenkins.service"))}
+- path: /usr/local/bin/start-slave
+  permissions: '0754'
+  encoding: b64
+  content: ${base64encode(file("scripts/slave-start.sh"))}
 - path: /opt/swarm-client-logging.properties
   permissions: '0644'
   encoding: b64
@@ -24,7 +28,8 @@ apt_update: true
 apt_upgrade: true
 
 packages:
-- openjdk-8-jre
+- openjdk-11-jdk
+- jq
 
 power_state:
   delay: now

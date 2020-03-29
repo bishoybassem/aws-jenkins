@@ -13,24 +13,25 @@ import org.jenkinsci.plugins.authorizeproject.strategy.TriggeringUsersAuthorizat
 
 def instance = Jenkins.getInstance()
 
+def getPasswordFromSecretsManager(secretId) {
+    def result = "aws secretsmanager get-secret-value --secret-id $secretId --query SecretString --output text".execute()
+    result.waitFor()
+    if (result.exitValue() != 0) {
+        println "Error: $result.text"        
+        throw new RuntimeException("Could not get secret: $secretId")
+    }
+    return result.text.trim()
+}
+
 if (instance.getSecurityRealm() == hudson.security.SecurityRealm.NO_AUTHENTICATION) {
     println '--> creating common accounts'
     def securityRealm = new HudsonPrivateSecurityRealm(false)
     def jenkinsHome = System.getenv('JENKINS_HOME')
-    securityRealm.createAccount('admin', 'ignore_as_it_will_be_modified_below')
-    securityRealm.createAccount('slave', new File("$jenkinsHome/.slave_pass").text.trim())
+
+    securityRealm.createAccount('admin', getPasswordFromSecretsManager('jenkins-admin-password'))
+    securityRealm.createAccount('slave', getPasswordFromSecretsManager('jenkins-slave-password'))
     securityRealm.createAccount('monitoring', new File("$jenkinsHome/.monitoring_pass").text.trim())
     instance.setSecurityRealm(securityRealm)
-
-    // Change the password for the admin user, by replacing the password hash in the config file. This is done
-    // to avoid storing the admin's password in plain text on the instance (ex. this file or user-data).
-    def jenkins_home = System.getenv('JENKINS_HOME')
-    def adminConfig = new File(new FileNameFinder().getFileNames(jenkins_home, 'users/admin_*/config.xml')[0])
-    def adminPassHash = new File("$jenkins_home/.admin_pass_hash").text.trim()
-    adminConfig.text = adminConfig.text.replaceAll('<passwordHash>.*</passwordHash>',
-            Matcher.quoteReplacement("<passwordHash>$adminPassHash</passwordHash>"))
-
-    instance.reload()
 }
 
 if (instance.getAuthorizationStrategy() == hudson.security.AuthorizationStrategy.UNSECURED) {

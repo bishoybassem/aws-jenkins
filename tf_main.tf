@@ -1,13 +1,9 @@
-variable "region" {
-  description = "Name of the AWS region to use"
-  default     = "eu-central-1"
+terraform {
+  required_version = ">= 0.12"
 }
 
 provider "aws" {
   region = var.region
-}
-
-data "aws_caller_identity" "current" {
 }
 
 resource "aws_vpc" "main" {
@@ -63,7 +59,7 @@ resource "aws_network_acl" "main_public_acl" {
     protocol   = "tcp"
     cidr_block = aws_subnet.main_private.cidr_block
     from_port  = 8081
-    to_port    = 8082
+    to_port    = 8081
   }
 
   ingress {
@@ -90,7 +86,7 @@ resource "aws_network_acl" "main_public_acl" {
     protocol   = "tcp"
     cidr_block = "0.0.0.0/0"
     from_port  = 32768
-    to_port    = 60999
+    to_port    = 61000
   }
 
   egress {
@@ -116,6 +112,15 @@ resource "aws_network_acl" "main_public_acl" {
     action     = "allow"
     protocol   = "tcp"
     cidr_block = "0.0.0.0/0"
+    from_port  = 22
+    to_port    = 22
+  }
+
+  egress {
+    rule_no    = 190
+    action     = "allow"
+    protocol   = "tcp"
+    cidr_block = "0.0.0.0/0"
     from_port  = 1024
     to_port    = 65535
   }
@@ -123,7 +128,7 @@ resource "aws_network_acl" "main_public_acl" {
 
 resource "aws_security_group" "jenkins_master" {
   name        = "jenkins_master"
-  description = "Allow inbound traffic [ports: 80, 8081, 8082, 443, 22] and all outbound traffic"
+  description = "Allow inbound traffic [ports: 80, 8081, 443, 22] and all outbound traffic"
   vpc_id      = aws_vpc.main.id
 
   ingress {
@@ -133,11 +138,10 @@ resource "aws_security_group" "jenkins_master" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  /* Allow slaves to connect to JNLP port 8081, and port 8082 (nginx) that automatically
-  authenticates them with 'slave' user. */
+  // Allow slaves to connect to JNLP port 8081
   ingress {
     from_port       = 8081
-    to_port         = 8082
+    to_port         = 8081
     protocol        = "tcp"
     security_groups = [aws_security_group.jenkins_slave.id]
   }
@@ -207,7 +211,7 @@ resource "aws_network_acl" "main_private_acl" {
     protocol   = "tcp"
     cidr_block = "0.0.0.0/0"
     from_port  = 32768
-    to_port    = 60999
+    to_port    = 61000
   }
 
   egress {
@@ -232,9 +236,9 @@ resource "aws_network_acl" "main_private_acl" {
     rule_no    = 250
     action     = "allow"
     protocol   = "tcp"
-    cidr_block = aws_subnet.main_public.cidr_block
+    cidr_block = "0.0.0.0/0"
     from_port  = 8081
-    to_port    = 8082
+    to_port    = 8081
   }
 
   egress {
@@ -243,7 +247,7 @@ resource "aws_network_acl" "main_private_acl" {
     protocol   = "tcp"
     cidr_block = "0.0.0.0/0"
     from_port  = 32768
-    to_port    = 60999
+    to_port    = 61000
   }
 }
 

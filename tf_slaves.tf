@@ -1,40 +1,39 @@
-variable "slave_count" {
-  default     = 1
-  description = "Minimum number of slaves to have"
-}
-
-variable "slave_max_count" {
-  default     = 3
-  description = "Maximum number of slaves possible"
-}
-
 resource "aws_iam_role" "jenkins_slave_iam_role" {
   name               = "jenkins_slave_iam_role"
   assume_role_policy = data.aws_iam_policy_document.ec2_assume_role_policy.json
 }
 
-data "aws_iam_policy_document" "jenkins_slave_iam_policy_document" {
-  statement {
-    actions = [
-      "autoscaling:DescribeAutoScalingInstances",
-      "ec2:DescribeAddresses",
-    ]
-    resources = ["*"]
-  }
-
-  statement {
-    actions = [
-      "autoscaling:CompleteLifecycleAction",
-      "autoscaling:RecordLifecycleActionHeartbeat",
-    ]
-    resources = ["arn:aws:autoscaling:${var.region}:${data.aws_caller_identity.current.account_id}:autoScalingGroup:*:autoScalingGroupName/jenkins_slaves"]
-  }
-}
-
 resource "aws_iam_role_policy" "jenkins_slave_iam_role_policy" {
   name   = "jenkins_slave_iam_role_policy"
   role   = aws_iam_role.jenkins_slave_iam_role.id
-  policy = data.aws_iam_policy_document.jenkins_slave_iam_policy_document.json
+  policy = <<-EOF
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "autoscaling:DescribeAutoScalingInstances",
+            "ec2:DescribeAddresses"
+          ],
+          "Resource": "*"
+        },
+        {
+          "Effect": "Allow",
+          "Action": [
+            "autoscaling:CompleteLifecycleAction",
+            "autoscaling:RecordLifecycleActionHeartbeat"
+          ],
+          "Resource": "${aws_autoscaling_group.jenkins_slaves_autoscaling_group.arn}"
+        },
+        {
+          "Effect": "Allow",
+          "Action": "secretsmanager:GetSecretValue",
+          "Resource": "${aws_secretsmanager_secret.slave_pass.arn}"
+        }
+      ]
+    }
+  EOF
 }
 
 resource "aws_iam_role_policy_attachment" "jenkins_slave_iam_role_policy_attachment" {
@@ -47,16 +46,11 @@ resource "aws_iam_instance_profile" "jenkins_slave_iam_role_instance_profile" {
   role = aws_iam_role.jenkins_slave_iam_role.name
 }
 
-data "template_file" "jenkins_slave_cloud_init_part_1" {
-  template = file("scripts/slave-cloud-config.yml.tpl")
-}
-
 data "template_cloudinit_config" "jenkins_slave_cloud_init" {
   part {
     content_type = "text/cloud-config"
-    content      = data.template_file.jenkins_slave_cloud_init_part_1.rendered
+    content      = templatefile("scripts/slave-cloud-config.yml.tpl", {})
   }
-
   part {
     content_type = "text/x-shellscript"
     content      = file("scripts/slave-setup.sh")
@@ -64,7 +58,7 @@ data "template_cloudinit_config" "jenkins_slave_cloud_init" {
 }
 
 resource "aws_launch_template" "jenkins_slave_launch_template" {
-  image_id               = data.aws_ami.debian_stretch_latest_ami.id
+  image_id               = data.aws_ami.debian_buster_latest_ami.id
   instance_type          = "t2.micro"
   key_name               = var.key_pair_name
   vpc_security_group_ids = [aws_security_group.jenkins_slave.id]

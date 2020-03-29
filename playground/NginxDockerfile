@@ -7,4 +7,4 @@ RUN apt-get update \
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 RUN cd /etc/nginx \
-    && openssl req -newkey rsa:2028 -nodes -keyout server.pem -x509 -subj '/CN=localhost' -days 1000 -out server.crt
+    && openssl req -newkey rsa:2048 -nodes -keyout server.pem -x509 -subj '/CN=localhost' -addext "subjectAltName = DNS:nginx" -days 1000 -out server.crt

@@ -3,8 +3,14 @@
 
 This project sets up a highly available, auto-scaling, and secure Jenkins cluster on AWS using Terraform. 
 
+## Table of Contents
+1. [Implementation](#implementation)
+2. [Usage](#usage)
+3. [Testing Locally](#testing-locally)
+4. [Configuration](#configuration)
+
 ## Implementation
-The setup's architecture is shown in the bellow diagram, with the following features:
+The setup's architecture is shown in the diagram to the right, with the following components:
 
 <img align="right" width="190" src="diagram.svg"/>
 
@@ -32,13 +38,13 @@ if it's terminating (`Terminating:Wait`), then it marks itself as offline in ord
 it will keep extending the termination timeout period by recording a heartbeat, otherwise, it will complete the lifecycle action, which resumes the termination process. 
 * CloudWatch Logs stores the logs from master and slaves (collected by CloudWatch agent).
   
-## Requirements
-The following needs to be present/installed:
-* Terraform (used version 0.12.6, [guide](https://www.terraform.io/downloads.html))
+## Usage
+To setup the cluster on AWS, the following needs to be present/installed on your machine:
+* Terraform (used version 0.12.24, [guide](https://www.terraform.io/downloads.html))
 * `~/.aws/credentials` file containing your IAM user's access keys. ([guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html))
 * EC2 key pair for SSH access. ([guide](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html))
 
-## Steps
+After installing the requirements listed above, do the following:
 1. Clone the repository, and navigate to the clone directory.
 2. Run Terraform:
    ```bash
@@ -70,22 +76,22 @@ The following needs to be present/installed:
    terraform destroy
    ```
 
-## Parameters
-Terraform can be executed with the following variables:
-
-| Name                 | Default      | Description
-| -------------------- | ------------ | -----------
-| region               | eu-central-1 | Name of the AWS region to use.
-| key_pair_name        | aws          | Name of an EC2 key pair in the specified region.
-| jenkins_version      | 2.176.2      | Jenkins version to use.
-| swarm_plugin_version | 3.17         | Swarm plugin version to use.
-| slave_count          | 1            | Minimum number of slaves to have.
-| slave_max_count      | 3            | Maximum number of slaves possible.
-
 ## Testing locally
 For testing/demo purposes, you can run the same setup locally with Docker (used version 18.09.0-ce) and Docker Compose (used version 1.23.1) as follows:
 ```bash
 cd ./playground
-docker-compose up --scale slave=3
+docker-compose up --build --force-recreate -V --scale slave=3
 ```
 After that, open `https://localhost` in your browser, and login as `admin` with password `admin123`.
+
+## Configuration
+The following table lists the input variables of the terraform module and their default values:
+
+| Variable               | Description `Default`                                 |
+| ---------------------- | ------------------------------------------------------|
+| `region`               | Name of the AWS region to use `eu-central-1`          |
+| `key_pair_name`        | Name of an EC2 key pair in the specified region `aws` |
+| `jenkins_version`      | Jenkins version to use `2.222.1`                      |
+| `swarm_plugin_version` | Swarm plugin version to use `3.18`                    |
+| `slave_count`          | Minimum number of slaves to have `1`                  |
+| `slave_max_count`      | Maximum number of slaves possible `3`                 |

@@ -1,31 +1,31 @@
-variable "key_pair_name" {
-  description = "Name of an existing EC2 key pair"
-  default     = "aws"
-}
-
-variable "jenkins_version" {
-  description = "Jenkins version to use"
-  default     = "2.176.2"
-}
-
-variable "swarm_plugin_version" {
-  description = "Swarm plugin version to use"
-  default     = "3.17"
-}
-
-resource "random_string" "admin_pass" {
+resource "random_password" "admin_pass" {
   length  = 16
   special = true
 }
 
-resource "random_string" "slave_pass" {
+resource "aws_secretsmanager_secret" "admin_pass" {
+  name                    = "jenkins-admin-password"
+  recovery_window_in_days = 0
+}
+
+resource "aws_secretsmanager_secret_version" "admin_pass" {
+  secret_id     = aws_secretsmanager_secret.admin_pass.id
+  secret_string = random_password.admin_pass.result
+}
+
+resource "random_password" "slave_pass" {
   length  = 16
   special = true
 }
 
-resource "random_string" "monitoring_pass" {
-  length  = 16
-  special = true
+resource "aws_secretsmanager_secret" "slave_pass" {
+  name                    = "jenkins-slave-password"
+  recovery_window_in_days = 0
+}
+
+resource "aws_secretsmanager_secret_version" "slave_pass" {
+  secret_id     = aws_secretsmanager_secret.slave_pass.id
+  secret_string = random_password.slave_pass.result
 }
 
 data "aws_iam_policy_document" "ec2_assume_role_policy" {
@@ -44,19 +44,31 @@ resource "aws_iam_role" "jenkins_master_iam_role" {
   assume_role_policy = data.aws_iam_policy_document.ec2_assume_role_policy.json
 }
 
-data "aws_iam_policy_document" "jenkins_master_iam_policy_document" {
-  statement {
-    actions = [
-      "ec2:DescribeAddresses",
-    ]
-    resources = ["*"]
-  }
-}
-
 resource "aws_iam_role_policy" "jenkins_master_iam_role_policy" {
   name   = "jenkins_master_iam_role_policy"
   role   = aws_iam_role.jenkins_master_iam_role.id
-  policy = data.aws_iam_policy_document.jenkins_master_iam_policy_document.json
+  policy = <<-EOF
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": "ec2:DescribeAddresses",
+          "Resource": "*"
+        },
+        {
+          "Effect": "Allow",
+          "Action": "secretsmanager:GetSecretValue",
+          "Resource": "${aws_secretsmanager_secret.admin_pass.arn}"
+        },
+        {
+          "Effect": "Allow",
+          "Action": "secretsmanager:GetSecretValue",
+          "Resource": "${aws_secretsmanager_secret.slave_pass.arn}"
+        }
+      ]
+    }
+  EOF
 }
 
 resource "aws_iam_role_policy_attachment" "jenkins_master_iam_role_policy_attachment" {
@@ -69,43 +81,23 @@ resource "aws_iam_instance_profile" "jenkins_master_iam_role_instance_profile" {
   role = aws_iam_role.jenkins_master_iam_role.name
 }
 
-data "aws_ami" "debian_stretch_latest_ami" {
+data "aws_ami" "debian_buster_latest_ami" {
   most_recent = true
-  owners      = ["379101102735"]
+  owners      = ["136693071363"]
 
   filter {
     name   = "name"
-    values = ["debian-stretch-hvm-x86_64-gp2-*"]
-  }
-}
-
-data "template_file" "jenkins_master_nginx_config" {
-  template = file("scripts/master-nginx.conf.tpl")
-
-  vars = {
-    slave_auth_header = base64encode("slave:${random_string.slave_pass.result}")
-  }
-}
-
-data "template_file" "jenkins_master_cloud_init_part_1" {
-  template = file("scripts/master-cloud-config.yml.tpl")
-
-  vars = {
-    jenkins_version = var.jenkins_version
-    admin_pass_hash = "admin_salt:${sha256("${random_string.admin_pass.result}{admin_salt}")}"
-    slave_pass      = random_string.slave_pass.result
-    monitoring_pass = random_string.monitoring_pass.result
-    nginx_conf      = data.template_file.jenkins_master_nginx_config.rendered
-    slaves_subnet   = aws_subnet.main_private.cidr_block
+    values = ["debian-10-amd64-*"]
   }
 }
 
 data "template_cloudinit_config" "jenkins_master_cloud_init" {
   part {
     content_type = "text/cloud-config"
-    content      = data.template_file.jenkins_master_cloud_init_part_1.rendered
+    content      = templatefile("scripts/master-cloud-config.yml.tpl", {
+      slaves_subnet   = aws_subnet.main_private.cidr_block
+    })
   }
-
   part {
     content_type = "text/x-shellscript"
     content      = file("scripts/master-setup.sh")
@@ -113,7 +105,7 @@ data "template_cloudinit_config" "jenkins_master_cloud_init" {
 }
 
 resource "aws_instance" "jenkins_master" {
-  ami                         = data.aws_ami.debian_stretch_latest_ami.id
+  ami                         = data.aws_ami.debian_buster_latest_ami.id
   instance_type               = "t2.micro"
   associate_public_ip_address = true
   key_name                    = var.key_pair_name
@@ -175,13 +167,4 @@ resource "aws_cloudwatch_metric_alarm" "jenkins_restart_master" {
 resource "aws_cloudwatch_log_group" "jenkins_log_group" {
   name              = "jenkins"
   retention_in_days = 14
-}
-
-output "jenkins_master_public_dns" {
-  # Workaround the issue that terraform doesn't update the public dns name of the instance after elastic ip association.
-  value = "ec2-${replace(aws_eip.jenkins_master_ip.public_ip, ".", "-")}.${var.region}.compute.amazonaws.com"
-}
-
-output "admin_pass" {
-  value = random_string.admin_pass.result
 }
