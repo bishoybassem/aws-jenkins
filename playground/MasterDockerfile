@@ -3,9 +3,9 @@ FROM jenkins/jenkins:lts-slim
 ENV JAVA_OPTS "-Djenkins.install.runSetupWizard=false"
 ENV JENKINS_SLAVE_AGENT_PORT 8081
 
-RUN /usr/local/bin/install-plugins.sh matrix-auth authorize-project swarm:3.18
+RUN /usr/local/bin/install-plugins.sh matrix-auth authorize-project script-security swarm:3.19
 
-COPY --chown=jenkins configure-security.groovy /usr/share/jenkins/ref/init.groovy.d/configure-security.groovy
+COPY --chown=jenkins configure.groovy /usr/share/jenkins/ref/init.groovy.d/configure.groovy
 
 RUN echo admin123 > /usr/share/jenkins/ref/.admin_pass \
     && chmod 400 /usr/share/jenkins/ref/.admin_pass

@@ -3,13 +3,15 @@
 instance_id=$(ec2metadata --instance-id)
 
 # Check whether the instance is terminating.
-status=$(aws autoscaling describe-auto-scaling-instances --instance-ids ${instance_id} --query 'AutoScalingInstances[*].LifecycleState' --output text)
+status=$(aws autoscaling describe-auto-scaling-instances --instance-ids ${instance_id} \
+	--query 'AutoScalingInstances[*].LifecycleState' --output text)
 if [ "$status" != "Terminating:Wait" ]; then
     exit 0
 fi
 
-# Query the master's private ip address.
-master_url="https://$(aws ec2 describe-addresses --filter 'Name=tag:Name,Values=jenkins_master' --query 'Addresses[*].PrivateIpAddress' --output text)"
+# Get the master's address from the instance's tags.
+master_url="https://$(aws ec2 describe-tags --filters "Name=resource-id,Values=$instance_id" \
+	'Name=tag:MasterHost,Values=*' --query 'Tags[*].Value' --output text)"
 
 # Fetch the jenkins-cli in case it wasn't already.
 if [ ! -f /opt/jenkins-cli.jar ]; then
