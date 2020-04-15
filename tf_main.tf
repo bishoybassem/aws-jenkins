@@ -7,31 +7,44 @@ provider "aws" {
 }
 
 resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
+  cidr_block           = var.cidr_vpc
   enable_dns_hostnames = true
   tags = {
     Name = "main"
   }
+
+  // Create it only if the vpc_id input variable is not set by user
+  count                = var.vpc_id == "" ? 1 : 0
+}
+
+locals {
+  // Use the VPC id specified by the user, otherwise, the one created by this module
+  jenkins_vpc_id = var.vpc_id == "" ? aws_vpc.main[0].id : var.vpc_id
 }
 
 resource "aws_internet_gateway" "main_gateway" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = local.jenkins_vpc_id
+
+  // Create it only if the ig_id input variable is not set by user
+  count  = var.ig_id == "" ? 1 : 0
 }
 
 resource "aws_subnet" "main_public" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.1.0/25"
+  vpc_id     = local.jenkins_vpc_id
+  cidr_block = var.cidr_public_subnet
   tags = {
-    Name = "main_public"
+    Name = "jenkins_public"
   }
 }
 
 resource "aws_route_table" "main_public_route_table" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = local.jenkins_vpc_id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main_gateway.id
+
+    // Use the IG id specified by the user, otherwise, the one created by this module
+    gateway_id = var.ig_id == "" ? aws_internet_gateway.main_gateway[0].id : var.ig_id
   }
 }
 
@@ -41,7 +54,7 @@ resource "aws_route_table_association" "main_public_route_table_association" {
 }
 
 resource "aws_network_acl" "main_public_acl" {
-  vpc_id     = aws_vpc.main.id
+  vpc_id     = local.jenkins_vpc_id
   subnet_ids = [aws_subnet.main_public.id]
 
   ingress {
@@ -57,7 +70,7 @@ resource "aws_network_acl" "main_public_acl" {
     rule_no    = 120
     action     = "allow"
     protocol   = "tcp"
-    cidr_block = aws_subnet.main_private.cidr_block
+    cidr_block = aws_subnet.main_private_1.cidr_block
     from_port  = 8081
     to_port    = 8081
   }
@@ -66,13 +79,22 @@ resource "aws_network_acl" "main_public_acl" {
     rule_no    = 130
     action     = "allow"
     protocol   = "tcp"
+    cidr_block = aws_subnet.main_private_2.cidr_block
+    from_port  = 8081
+    to_port    = 8081
+  }
+
+  ingress {
+    rule_no    = 140
+    action     = "allow"
+    protocol   = "tcp"
     cidr_block = "0.0.0.0/0"
     from_port  = 443
     to_port    = 443
   }
 
   ingress {
-    rule_no    = 140
+    rule_no    = 150
     action     = "allow"
     protocol   = "tcp"
     cidr_block = "0.0.0.0/0"
@@ -81,7 +103,7 @@ resource "aws_network_acl" "main_public_acl" {
   }
 
   ingress {
-    rule_no    = 150
+    rule_no    = 160
     action     = "allow"
     protocol   = "tcp"
     cidr_block = "0.0.0.0/0"
@@ -90,7 +112,7 @@ resource "aws_network_acl" "main_public_acl" {
   }
 
   egress {
-    rule_no    = 160
+    rule_no    = 170
     action     = "allow"
     protocol   = "tcp"
     cidr_block = "0.0.0.0/0"
@@ -99,7 +121,7 @@ resource "aws_network_acl" "main_public_acl" {
   }
 
   egress {
-    rule_no    = 170
+    rule_no    = 180
     action     = "allow"
     protocol   = "tcp"
     cidr_block = "0.0.0.0/0"
@@ -108,7 +130,7 @@ resource "aws_network_acl" "main_public_acl" {
   }
 
   egress {
-    rule_no    = 180
+    rule_no    = 190
     action     = "allow"
     protocol   = "tcp"
     cidr_block = "0.0.0.0/0"
@@ -117,7 +139,7 @@ resource "aws_network_acl" "main_public_acl" {
   }
 
   egress {
-    rule_no    = 190
+    rule_no    = 200
     action     = "allow"
     protocol   = "tcp"
     cidr_block = "0.0.0.0/0"
@@ -129,7 +151,7 @@ resource "aws_network_acl" "main_public_acl" {
 resource "aws_security_group" "jenkins_master" {
   name        = "jenkins_master"
   description = "Allow inbound traffic [ports: 80, 8081, 443, 22] and all outbound traffic"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = local.jenkins_vpc_id
 
   ingress {
     from_port   = 80
@@ -168,17 +190,25 @@ resource "aws_security_group" "jenkins_master" {
   }
 }
 
-resource "aws_subnet" "main_private" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = "10.0.1.128/25"
+resource "aws_subnet" "main_private_1" {
+  vpc_id            = local.jenkins_vpc_id
+  cidr_block        = var.cidr_private_subnet_1
   availability_zone = aws_subnet.main_public.availability_zone
   tags = {
-    Name = "main_private"
+    Name = "jenkins_private_1"
+  }
+}
+
+resource "aws_subnet" "main_private_2" {
+  vpc_id            = local.jenkins_vpc_id
+  cidr_block        = var.cidr_private_subnet_2
+  tags = {
+    Name = "jenkins_private_2"
   }
 }
 
 resource "aws_route_table" "main_private_route_table" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = local.jenkins_vpc_id
 
   # Route the traffic to the internet through the master node, i.e. the master node acts as a NAT server.
   route {
@@ -187,14 +217,19 @@ resource "aws_route_table" "main_private_route_table" {
   }
 }
 
-resource "aws_route_table_association" "main_private_route_table_association" {
-  subnet_id      = aws_subnet.main_private.id
+resource "aws_route_table_association" "main_private_1_route_table_association" {
+  subnet_id      = aws_subnet.main_private_1.id
+  route_table_id = aws_route_table.main_private_route_table.id
+}
+
+resource "aws_route_table_association" "main_private_2_route_table_association" {
+  subnet_id      = aws_subnet.main_private_2.id
   route_table_id = aws_route_table.main_private_route_table.id
 }
 
 resource "aws_network_acl" "main_private_acl" {
-  vpc_id     = aws_vpc.main.id
-  subnet_ids = [aws_subnet.main_private.id]
+  vpc_id     = local.jenkins_vpc_id
+  subnet_ids = [aws_subnet.main_private_1.id, aws_subnet.main_private_2.id]
 
   ingress {
     rule_no    = 210
@@ -254,7 +289,7 @@ resource "aws_network_acl" "main_private_acl" {
 resource "aws_security_group" "jenkins_slave" {
   name        = "jenkins_slave"
   description = "Allow inbound traffic [ports: 22] and all outbound traffic"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = local.jenkins_vpc_id
 }
 
 # Only allow ssh connections from the master node, i.e. the master node acts as a bastion host.
@@ -289,4 +324,15 @@ resource "aws_eip" "jenkins_master_ip" {
 resource "aws_eip_association" "jenkins_master_ip_association" {
   allocation_id = aws_eip.jenkins_master_ip.id
   instance_id   = aws_instance.jenkins_master.id
+}
+
+resource "null_resource" "public_subnet_ready" {
+  depends_on = [aws_route_table_association.main_public_route_table_association,
+                aws_network_acl.main_public_acl]
+}
+
+resource "null_resource" "private_subnets_ready" {
+  depends_on = [aws_route_table_association.main_private_1_route_table_association,
+                aws_route_table_association.main_private_2_route_table_association,
+                aws_network_acl.main_private_acl]
 }

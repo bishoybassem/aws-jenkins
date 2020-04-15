@@ -17,7 +17,7 @@ write_files:
 - path: /var/lib/jenkins/init.groovy
   permissions: '0644'
   encoding: b64
-  content: ${base64encode(file("scripts/master-configure-security.groovy"))}
+  content: ${base64encode(file("scripts/master-configure.groovy"))}
 - path: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
   permissions: '0644'
   encoding: b64
@@ -35,6 +35,7 @@ apt_upgrade: true
 packages:
 - openjdk-11-jdk
 - nginx
+- unzip
 - netcat
 - jq
 

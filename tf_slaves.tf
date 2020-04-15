@@ -12,10 +12,7 @@ resource "aws_iam_role_policy" "jenkins_slave_iam_role_policy" {
       "Statement": [
         {
           "Effect": "Allow",
-          "Action": [
-            "autoscaling:DescribeAutoScalingInstances",
-            "ec2:DescribeAddresses"
-          ],
+          "Action": "autoscaling:DescribeAutoScalingInstances",
           "Resource": "*"
         },
         {
@@ -59,7 +56,7 @@ data "template_cloudinit_config" "jenkins_slave_cloud_init" {
 
 resource "aws_launch_template" "jenkins_slave_launch_template" {
   image_id               = data.aws_ami.debian_buster_latest_ami.id
-  instance_type          = "t2.micro"
+  instance_type          = var.instance_type_slave
   key_name               = var.key_pair_name
   vpc_security_group_ids = [aws_security_group.jenkins_slave.id]
   user_data              = data.template_cloudinit_config.jenkins_slave_cloud_init.rendered
@@ -72,7 +69,9 @@ resource "aws_launch_template" "jenkins_slave_launch_template" {
     resource_type = "instance"
     tags = {
       Name               = "jenkins_slave"
+      MasterHost         = aws_eip.jenkins_master_ip.public_dns
       SwarmPluginVersion = var.swarm_plugin_version
+      NumExecutors       = var.num_executors_slave
     }
   }
 }
@@ -81,10 +80,10 @@ resource "aws_autoscaling_group" "jenkins_slaves_autoscaling_group" {
   name                 = "jenkins_slaves"
   min_size             = var.slave_count
   max_size             = var.slave_max_count
-  vpc_zone_identifier  = [aws_subnet.main_private.id]
+  vpc_zone_identifier  = [aws_subnet.main_private_1.id, aws_subnet.main_private_2.id]
   health_check_type    = "EC2"
   termination_policies = ["OldestLaunchTemplate", "OldestInstance"]
-  depends_on           = [aws_instance.jenkins_master]
+  depends_on           = [null_resource.private_subnets_ready]
 
   launch_template {
     id      = aws_launch_template.jenkins_slave_launch_template.id
@@ -113,14 +112,14 @@ resource "aws_autoscaling_policy" "jenkins_slaves_scale_out_policy" {
 
 resource "aws_cloudwatch_metric_alarm" "jenkins_long_waiting_queue" {
   alarm_name          = "jenkins_long_waiting_queue"
-  alarm_description   = "Trigger scaling out policy if the queue has more than 2 builds waiting for at least 5 minutes"
+  alarm_description   = "Trigger scaling out policy if the queue has more than/equal ${var.slaves_scale_out_queue_size} builds waiting for at least ${var.slaves_scale_out_queue_size_period} minutes"
   namespace           = "CWAgent"
   metric_name         = "jenkins_queue"
   period              = 60
   statistic           = "Average"
   comparison_operator = "GreaterThanOrEqualToThreshold"
-  threshold           = 2
-  evaluation_periods  = 5
+  threshold           = var.slaves_scale_out_queue_size
+  evaluation_periods  = var.slaves_scale_out_queue_size_period
   alarm_actions       = [aws_autoscaling_policy.jenkins_slaves_scale_out_policy.arn]
 
   dimensions = {
@@ -140,14 +139,14 @@ resource "aws_autoscaling_policy" "jenkins_slaves_scale_in_policy" {
 
 resource "aws_cloudwatch_metric_alarm" "jenkins_empty_queue" {
   alarm_name          = "jenkins_empty_queue"
-  alarm_description   = "Trigger scaling in policy if the queue is empty for at least 10 minutes"
+  alarm_description   = "Trigger scaling in policy if the queue has less than ${var.slaves_scale_in_queue_size} builds for at least ${var.slaves_scale_in_queue_size_period} minutes"
   namespace           = "CWAgent"
   metric_name         = "jenkins_queue"
   period              = 60
   statistic           = "Average"
   comparison_operator = "LessThanThreshold"
-  threshold           = 1
-  evaluation_periods  = 10
+  threshold           = var.slaves_scale_in_queue_size
+  evaluation_periods  = var.slaves_scale_in_queue_size_period
   alarm_actions       = [aws_autoscaling_policy.jenkins_slaves_scale_in_policy.arn]
 
   dimensions = {

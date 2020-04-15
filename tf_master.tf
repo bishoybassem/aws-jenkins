@@ -53,11 +53,6 @@ resource "aws_iam_role_policy" "jenkins_master_iam_role_policy" {
       "Statement": [
         {
           "Effect": "Allow",
-          "Action": "ec2:DescribeAddresses",
-          "Resource": "*"
-        },
-        {
-          "Effect": "Allow",
           "Action": "secretsmanager:GetSecretValue",
           "Resource": "${aws_secretsmanager_secret.admin_pass.arn}"
         },
@@ -95,7 +90,7 @@ data "template_cloudinit_config" "jenkins_master_cloud_init" {
   part {
     content_type = "text/cloud-config"
     content      = templatefile("scripts/master-cloud-config.yml.tpl", {
-      slaves_subnet   = aws_subnet.main_private.cidr_block
+      slaves_subnet = "${aws_subnet.main_private_1.cidr_block},${aws_subnet.main_private_2.cidr_block}"
     })
   }
   part {
@@ -106,7 +101,7 @@ data "template_cloudinit_config" "jenkins_master_cloud_init" {
 
 resource "aws_instance" "jenkins_master" {
   ami                         = data.aws_ami.debian_buster_latest_ami.id
-  instance_type               = "t2.micro"
+  instance_type               = var.instance_type_master
   associate_public_ip_address = true
   key_name                    = var.key_pair_name
   subnet_id                   = aws_subnet.main_public.id
@@ -116,11 +111,16 @@ resource "aws_instance" "jenkins_master" {
   // Disable source_dest_check as the master node acts as NAT server for the slaves to access the internet.
   source_dest_check    = false
   iam_instance_profile = aws_iam_instance_profile.jenkins_master_iam_role_instance_profile.name
-  depends_on           = [aws_eip.jenkins_master_ip]
+  depends_on           = [null_resource.public_subnet_ready]
+
   tags = {
     Name               = "jenkins_master"
+    PublicIP           = aws_eip.jenkins_master_ip.public_ip
+    PublicDNS          = aws_eip.jenkins_master_ip.public_dns
     JenkinsVersion     = var.jenkins_version
     SwarmPluginVersion = var.swarm_plugin_version
+    AdditionalPlugins  = jsonencode(var.additional_plugins)
+    NumExecutors       = var.num_executors_master
   }
 
   // Wait until the master node starts.
@@ -131,14 +131,14 @@ resource "aws_instance" "jenkins_master" {
 
 resource "aws_cloudwatch_metric_alarm" "jenkins_recover_master" {
   alarm_name          = "jenkins_recover_master"
-  alarm_description   = "Recover master machine in case the system check fails for 2 minutes"
+  alarm_description   = "Recover master machine in case the system check fails for ${var.master_recover_system_failure_period} minutes"
   namespace           = "AWS/EC2"
   metric_name         = "StatusCheckFailed_System"
   period              = 60
   statistic           = "Minimum"
   comparison_operator = "GreaterThanThreshold"
   threshold           = 0
-  evaluation_periods  = 2
+  evaluation_periods  = var.master_recover_system_failure_period
   alarm_actions       = ["arn:aws:automate:${var.region}:ec2:recover"]
 
   dimensions = {
@@ -148,14 +148,14 @@ resource "aws_cloudwatch_metric_alarm" "jenkins_recover_master" {
 
 resource "aws_cloudwatch_metric_alarm" "jenkins_restart_master" {
   alarm_name          = "jenkins_restart_master"
-  alarm_description   = "Restart master machine in case the jenkins service is down for 3 minutes"
+  alarm_description   = "Restart master machine in case the jenkins service is down for ${var.master_restart_service_down_period} minutes"
   namespace           = "CWAgent"
   metric_name         = "jenkins_service"
   period              = 60
   statistic           = "Minimum"
   comparison_operator = "LessThanThreshold"
   threshold           = 1
-  evaluation_periods  = 3
+  evaluation_periods  = var.master_restart_service_down_period
   alarm_actions       = ["arn:aws:automate:${var.region}:ec2:reboot"]
 
   dimensions = {
