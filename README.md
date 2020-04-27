@@ -6,9 +6,10 @@ The standing feature behind this setup is the automatic scaling of the slaves' E
 
 ## Table of Contents
 1. [Implementation](#implementation)
-2. [Usage](#usage)
-3. [Testing Locally](#testing-locally)
-4. [Configuration](#configuration)
+2. [Requirements](#requirements)
+3. [Usage](#usage)
+4. [Demo](#demo)
+5. [Configuration](#configuration)
 
 ## Implementation
 
@@ -32,13 +33,13 @@ The setup's architecture is shown in the above diagram. It includes the followin
 * A termination lifecycle hook is in place to properly drain the slave before terminating it. Basically, each slave monitors its lifecycle state, if it's terminating (`Terminating:Wait`), then it marks itself as offline in order not to accept new builds. Moreover, if it's already running a build, it will keep extending the termination timeout period by recording a heartbeat, otherwise, it will complete the lifecycle action, which resumes the termination process.
 * CloudWatch Logs stores the logs from master and slaves (collected by CloudWatch agent).
   
-## Usage
-To set up the cluster on AWS, the following needs to be present/installed on your machine:
+## Requirements
+Before starting, the following needs to be present/installed on your machine:
 * Terraform (used version 0.12.24, [guide](https://www.terraform.io/downloads.html)).
 * `~/.aws/credentials` file containing your IAM user's access keys ([guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)).
 * EC2 key pair for SSH access ([guide](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-key-pairs.html)).
 
-After installing the requirements listed above, do the following:
+## Usage
 1. Clone the repository, and navigate to the clone directory.
 2. Run Terraform:
    ```bash
@@ -68,7 +69,7 @@ After installing the requirements listed above, do the following:
    terraform destroy
    ```
 
-## Testing locally
+## Demo
 For testing/demo purposes, you can run the same setup locally with Docker (used version 19.03.8-ce) and Docker Compose (used version 1.25.4) as follows:
 ```bash
 cd ./playground
@@ -83,7 +84,7 @@ The following table lists the input variables of the Terraform module, and their
 |----------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | `region`                               | Name of the AWS region to use `eu-central-1`                                                                         |
 | `key_pair_name`                        | Name of an EC2 key pair in the specified region `aws`                                                                |
-| `vpc_id`                               | VPC id to use (if set, the module skips creating one with an internet gateway)                                       |
+| `vpc_id`                               | VPC id to use (if set, this module would skip creating one)                                                          |
 | `ig_id`                                | Internet gateway id to use within the VPC (if set, this module would skip creating one)                              |
 | `cidr_vpc`                             | IPv4 address block for the VPC (if one would be created) `10.0.0.0/16`                                               |
 | `cidr_public_subnet`                   | IPv4 address block for the public subnet `10.0.1.0/24`                                                               |
